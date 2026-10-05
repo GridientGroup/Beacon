@@ -312,7 +312,7 @@
       // ── 3. BPS deadlines ──
       if (typeof window.computeBpsExposure === 'function') {
         var ex = null;
-        try { ex = window.computeBpsExposure(meters, window._currentBtype || 'office'); } catch (e) { console.warn('[triggers] bps', e); }
+        try { ex = window.computeBpsExposure(meters, opts.btype || window._currentBtype || 'office'); } catch (e) { console.warn('[triggers] bps', e); }
         stats.bpsSites = ex ? ex.totalSitesInScope : 0;
         ((ex && ex.byJurisdiction) || []).forEach(function (bj) {
           var j = bj.jurisdiction;

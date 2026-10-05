@@ -5549,6 +5549,10 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     </div>
 
 <section class="sec" id="sec-admin">
+  <!-- Pre-engagement report (bundle 123). Broker-only; form and report are
+       drawn by prereport.js. Runs Beacon's engines on one prospect building
+       and opens a printable report. Saves nothing. -->
+  <div id="pre-root" class="broker-only" style="margin-bottom:26px"></div>
   <div class="adm-prog-hd">
     <div class="adm-prog-hd-l">
       <span class="adm-prog-eye">Internal · Broker overview</span>
@@ -10454,6 +10458,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="opportunity_calc.js"></script>
   <script src="ptc.js"></script>
   <script src="triggers.js"></script>
+  <script src="prereport.js"></script>
   <script src="market_intel.js"></script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
