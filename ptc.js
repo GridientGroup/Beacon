@@ -170,13 +170,23 @@
       if (r.price != null) s += 3; else if (r.proxy_price != null) s += 1.5;
       if (r.status === 'current') s += 1;
       if (/off-?peak/i.test(r.service_class)) s -= 2;        // prefer the all-hours or peak line
+      if (!inEffect(r)) s -= 4;                               // bundle 122: today's price, not next month's
       return { r: r, s: s };
     });
     scored.sort(function (a, b) { return b.s - a.s || String(b.r.effective_start || '').localeCompare(String(a.r.effective_start || '')); });
     return scored.length ? { row: scored[0].r, how: 'size', size: sz } : null;
   }
-  function newest(rs) { return rs.slice().sort(function (a, b) { return String(b.effective_start || '').localeCompare(String(a.effective_start || '')); })[0]; }
-  function best(rs) { return rs.slice().sort(function (a, b) { return ((b.price != null) - (a.price != null)) || String(b.effective_start || '').localeCompare(String(a.effective_start || '')); })[0]; }
+  // bundle 122: the catalog now carries announced periods (e.g. UI's November
+  // and December last-resort prices, RI Energy's Nov 1 gas rates). Sorting by
+  // newest start alone picked next month's price as "the" price to compare.
+  // A row in effect today always outranks one that starts later or has ended.
+  function todayIso() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function inEffect(r) {
+    var t = todayIso(), s = String(r.effective_start || '').slice(0, 10), e = String(r.effective_end || '').slice(0, 10);
+    return (!s || s <= t) && (!e || e >= t);
+  }
+  function newest(rs) { return rs.slice().sort(function (a, b) { return (inEffect(b) - inEffect(a)) || String(b.effective_start || '').localeCompare(String(a.effective_start || '')); })[0]; }
+  function best(rs) { return rs.slice().sort(function (a, b) { return (inEffect(b) - inEffect(a)) || ((b.price != null) - (a.price != null)) || String(b.effective_start || '').localeCompare(String(a.effective_start || '')); })[0]; }
 
   function fuelOf(acct) {
     var t = String(acct.type || acct.accountType || '').toLowerCase();
@@ -548,5 +558,8 @@
       '<div class="bm-basis">' + (n > list.length ? 'Top ' + list.length + ' of ' + n + ' meters above. ' : '') + 'Click a row to open the location and its price-to-compare cards.</div>';
   }
 
-  window.BeaconPTC = { renderLocation: renderLocation, renderPortfolio: renderPortfolio, match: match, loadState: loadState, _pickUtility: pickUtility, _expand: expand };
+  window.BeaconPTC = { renderLocation: renderLocation, renderPortfolio: renderPortfolio, match: match, loadState: loadState, _pickUtility: pickUtility, _expand: expand,
+    // bundle 122: shared with triggers.js so the Next 120 days list uses the
+    // same value, unit and client-view rules as the cards and the rollup.
+    _ptcValue: ptcValue, _contracted: contracted, _fuelOf: fuelOf, _clientView: clientView, _fmt: fmt, _money: money, COLS: COLS, DEREG: DEREG_PTC };
 })();

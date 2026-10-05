@@ -6582,6 +6582,22 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         </div>
       </div>
 
+      <!-- Triggers theme group (bundle 122). Broker-only; painted by
+           window.BeaconTriggers.render() from renderBenchmarks(). One per-client
+           "Next 120 days" list: contract expirations, default-rate moves from
+           the monthly price-to-compare catalog, and BPS deadlines. Hidden in
+           client views. -->
+      <div class="igrid-theme-hd" id="trg-hd" style="display:none">
+        <div class="igrid-theme-eye">Theme · Triggers</div>
+        <div class="igrid-theme-title">What's coming in the next 120 days?</div>
+        <div class="igrid-theme-sub">contract expirations · default-rate moves · BPS deadlines</div>
+      </div>
+      <div class="igrid" id="trg-grid" style="display:none">
+        <div class="icard" id="trg-a" style="min-width:0"></div>
+        <div class="icard" id="trg-b" style="min-width:0"></div>
+        <div class="icard" id="trg-list" style="grid-column:1/-1;min-width:0"></div>
+      </div>
+
       <!-- Supply theme group (bundle 121). Broker-only; painted by
            window.BeaconPTC.renderPortfolio() from renderBenchmarks(). Hidden
            in client views. Uses the same matching as the location page's
@@ -10437,6 +10453,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="city_coords.js"></script>
   <script src="opportunity_calc.js"></script>
   <script src="ptc.js"></script>
+  <script src="triggers.js"></script>
   <script src="market_intel.js"></script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
@@ -13023,6 +13040,9 @@ function renderBenchmarks(state, btype, sqft, spend, sqftSource){
   // bundle 121: portfolio price-to-compare rollup (async, broker-only)
   try { if (window.BeaconPTC && window.BeaconPTC.renderPortfolio) window.BeaconPTC.renderPortfolio(); }
   catch (e) { console.warn('[ptc] portfolio render failed:', e); }
+  // bundle 122: Next 120 days triggers (async, broker-only)
+  try { if (window.BeaconTriggers && window.BeaconTriggers.render) window.BeaconTriggers.render(); }
+  catch (e) { console.warn('[triggers] render failed:', e); }
   if (!window.computeBenchmarks) return;
   sqftSource = sqftSource || 'reported';
   window._beaconSqftSource = sqftSource;
