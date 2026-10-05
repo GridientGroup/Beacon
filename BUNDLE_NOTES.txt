@@ -1,0 +1,1847 @@
+BEACON DEPLOY BUNDLE — beacon_index_121
+(Portfolio rollup for price to compare. Completes the utility price
+comparison design. Deploy this one.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-10-05. CUMULATIVE — deploy alone. Changed vs 120: index.html, ptc.js.
+
+WHAT 121 ADDS
+Intelligence tab → new group "Theme · Supply — Are contracts beating default
+service?", right under Performance. Brokers only (hidden in client views).
+
+  Tile 1 · Supply vs Price to Compare
+    Headline: $/yr the portfolio pays ABOVE default service (sum over meters
+    whose contracted rate is above their price to compare, × annual usage).
+    Rows: meters in choice states · with a contracted rate (and how many are
+    missing one) · above (count, $/yr) · below (count, $/yr) · net.
+    Footnote counts how many comparisons used an estimate, how many meters
+    have no price to compare (hourly/unpublished), and unmatched utilities.
+  Tile 2 · Largest gaps above price to compare
+    Top 6 meters by $/yr above. Click a row → that location's page.
+
+Same matching and math as the location-page cards, so the tile and the
+drill-down always agree. Meters with no contracted rate are counted as
+missing, never priced. No rate on file anywhere → the tile says so instead
+of showing $0.
+
+══════════════════════════════════════════════════════════════════════════════
+
+BEACON DEPLOY BUNDLE — beacon_index_120
+(Fix for 119: the Price to Compare section did not show. Deploy this one.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-10-05. CUMULATIVE — deploy alone. Changed vs 119: index.html, ptc.js.
+
+WHY 119 SHOWED NOTHING
+119 drew the section only when it could confirm a signed-in broker session
+AND the building was in one of the 15 choice states; otherwise it hid the
+whole section, header included, with no message. It also sat at the very
+bottom of the page, under Procurement Status, after four renderers that run
+first. Any of those three things leaves the page looking unchanged.
+
+WHAT 120 CHANGES
+- The section is now right under Performance & Exposure (above Compliance),
+  and it renders before BPS / solar / rebates / contract, so an error in
+  those can't keep it off the page.
+- It always shows for brokers. Only client views hide it ("View as: Client"
+  and the customer deep link).
+- A building in a regulated state now says so ("FL has no retail choice for
+  commercial supply, so there is no price to compare") instead of vanishing.
+- Editing (Add / Edit rate) still needs a signed-in broker; without a
+  session the cards show read-only.
+- Mid-size meters (300 MWh–2 GWh/yr) with no "medium" class now match the
+  large class (e.g. PECO >100 kW hourly) instead of the small fixed price.
+- Console shows "[ptc] render <state> <n> meters" on every location open,
+  for troubleshooting.
+
+══════════════════════════════════════════════════════════════════════════════
+
+BEACON DEPLOY BUNDLE — beacon_index_119
+(Price to compare inside Beacon, and the contracted rate finally stored.
+Built on 118. Plus everything from 98-118 — notes for 118 are below.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-10-05. 119 is CUMULATIVE — deploy this one alone.
+
+Changed: index.html, sts_portfolio_upload_template_v2.xlsx.
+New:     ptc.js (must ship — index.html loads it),
+         03_accounts_contracted_rate.sql (record only; ALREADY APPLIED in
+         Supabase, does nothing on Netlify).
+
+WHAT 119 DOES
+1. LOCATION PAGE → new section "Supply · Price to Compare", under Procurement
+   Status. One card per meter: the utility's price to compare for that meter's
+   commercial class, from the price_to_compare catalog, next to the
+   contracted rate, with the gap in ¢ (or $/therm), %, and $/yr at the meter's
+   usage. Every figure carries its source link and a label:
+     PUBLISHED   utility/PUC figure, verified by a second worker
+     UNCONFIRMED figure on file but not re-verified
+     ESTIMATE    no published price; labelled estimate with its basis
+     HOURLY      hourly-priced default service, no single price
+   Gaps of 60%+ get a "check the unit" warning.
+2. BROKERS ONLY. Hidden in the customer deep-link view and in "View as:
+   Client". To show clients later, it is one switch in ptc.js.
+3. MATCHING. Utility by name within the state (ComEd, PSE&G, Con Ed,
+   Eversource East/West MA, etc. tested against the live catalog: 25 of 26
+   sample utilities matched; Austin Energy correctly reads as not a choice
+   utility). Class by the meter's annual usage (small/medium/large), or by the
+   Rate Class if one is entered. A broker can override utility and class on
+   the card ("Edit rate or class").
+4. CONTRACTED RATE IS STORED. accounts gained supply_rate, supply_rate_unit,
+   rate_effective, rate_source, tariff_code, ptc_utility, ptc_service_class.
+   Before 119 the upload read a Supply Rate and then threw it away.
+   - Upload: template v2 has 4 new optional columns — Supply Rate, Rate Unit
+     (dropdown), Rate Effective, Rate Class. Electric in cents; a value like
+     0.089 is read as 8.9¢. Gas defaults to $/therm.
+   - Broker entry: "Add contracted rate" on each card writes straight to
+     accounts under the broker's own permissions.
+5. Existing "your rate vs state avg" line on the location overview keeps
+   working, now fed from the stored rate (electric only — a gas $/therm can
+   no longer be shown as cents).
+
+NOTHING TO RUN. The database change is already live and is additive.
+
+══════════════════════════════════════════════════════════════════════════════
+
+BEACON DEPLOY BUNDLE — beacon_index_118
+(Your 5 October decisions, built on 117 exactly as it is deployed. Plus
+everything from 98-117.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-10-05. Base: the bundle you sent from Netlify (deploy
+6aabed66cb9f574c8caa4cf4 = beacon_index_117).
+
+118 is CUMULATIVE — deploy this one alone. Same files as 117, with these
+changed: index.html, benchmarks.js, bps_jurisdictions.js, opportunity_calc.js,
+openei.js, perloc.js, sts_portfolio_upload_template_v2.xlsx. One new file:
+02_accounts_type_check.sql (run by hand in Supabase — see item 9). It does
+nothing on Netlify.
+
+══════════════════════════════════════════════════════════════════════════════
+BEFORE YOU OPEN A CLIENT SCREEN — FOUR NUMBERS WILL MOVE
+══════════════════════════════════════════════════════════════════════════════
+
+1. BPS exposure goes UP a lot. On Vandelay: current $1.2M -> $8.9M, future
+   $1.9M -> $10.5M. Almost all of the increase is DC and Washington State,
+   now priced at their real published rules instead of "TBD" / an unsourced
+   $0.30/sqft. Both are WORST-CASE MAXIMUM fines and the tiles now say so
+   ("$270K computed excess · $8.6M worst-case maximum fines").
+2. The opportunity headline on the Footprint page was never showing (see
+   "dead screens" below). It is back. Efficiency is now sized as the gap to
+   the MEDIAN building of the same type (your call, 5 Oct), so a building
+   already at or better than median shows $0 efficiency. On the default
+   profile the headline is $213K (was $480K), led by rebates.
+3. Procurement is 8% of supply EVERYWHERE now: default profile $156K -> $125K
+   on the opportunity engine, $0 in regulated states.
+4. Per-building rooftop solar drops about 9% in capacity and payback gets
+   longer, because the 30% tax credit is gone and the Location page now uses
+   the same engine as the portfolio screens.
+
+══════════════════════════════════════════════════════════════════════════════
+WHAT YOU DECIDED, AND WHAT IT DID
+══════════════════════════════════════════════════════════════════════════════
+
+1. ONE RATE TABLE. window.BEACON_OPP_RATES in benchmarks.js. Procurement 8%
+   of supply, DR 4%, solar 8%, efficiency 20% (fallback only), recovery 2% x
+   3 years one-time. The opportunity engine, the Footprint savings card and
+   the per-meter drill-down all read it. Before: 8% / 10% / 4% depending on
+   the screen. The last "12% capture" label on the Location page is gone.
+   Procurement is $0 in regulated states on every screen.
+
+2. PER-METER DRILL-DOWN uses the published rates (it was about half, by
+   accident). Because that roughly doubled every card, the Opportunities tab
+   total now shows the LARGEST SINGLE program, not the sum — procurement,
+   efficiency and solar act on the same dollars, so adding them
+   double-counts. Same rule the profile engine already used. Cost recovery
+   now says "one-time" instead of "/yr".
+
+3. FULLY ENROLLED CLIENTS see "All programs active" in the opportunity hero.
+   Partly enrolled clients see the largest program they have NOT bought. The
+   client report uses the same figures.
+
+4. BPS HEADLINE now discloses what it is: computed excess vs worst-case
+   fines, and "N of M sites priced". "Exposed" no longer prints for a
+   portfolio that is actually compliant. "COVERED, COMPLIANT" no longer
+   prints when nothing could be priced at all.
+
+5. 70% REC CLAIM REMOVED from all six places. Replaced with NYC's actual
+   rule: Tier 4 (NYC-delivered) RECs only, first supply 2026-2027,
+   electricity only, not available in Period 1 to buildings on the
+   good-faith-efforts plan. Boston's $234/t is now labelled an Alternative
+   Compliance Payment.
+
+6. DATED BPS RULES (bps_jurisdictions.js). Every number researched against
+   the primary source on 5 Oct 2026:
+   - DC: up to $10/sqft, max $7.5M per building, Cycle 1 ends 12/31/2026.
+     Worst case — DC reduces it for partial progress, which Beacon can't see.
+   - Washington State: up to $5,000 + $1.50/sqft (the 18-month cap on
+     $1/sqft/yr). The old $0.30 matched nothing in the rule. Dated by size:
+     >220k sqft due June 2026, 90-220k 2027, 50-90k 2028.
+   - Seattle: real GHGI targets by building type, Seattle City Light's own
+     emission factors (not eGRID — that would overstate ~12x), $190/t ACP,
+     first year 2031-2035 by size. Future column only.
+   - Maryland: direct (on-site gas) emissions only, real standards by
+     property type, $230/t (2020 $) +$4/yr — and the 2025 law (Ch. 844)
+     bars collecting anything until 2032. Hospitals and plants excluded.
+     Future column only.
+   - Oregon: left unpriced on purpose. A penalty exists ($5,000 + $1/sqft
+     per year) but no maximum is published, so there is nothing honest to
+     total. The label now says exactly that.
+   - NYC, Boston, Denver, Boulder: unchanged. 690 regression checks, 0 drift.
+   Also: the per-building drill-down under each jurisdiction row now opens.
+   It never did — the module never produced the rows the table expected.
+
+7. SOLAR: one engine, no tax credit. The Location page now uses the same
+   0.0055 kW/sqft (adjusted by building type), PVWatts production and
+   $1.75/W as the portfolio screens. If PVWatts hasn't answered yet it says
+   "State-average production" instead of pretending.
+
+8. EFFICIENCY: EUI gap to the MEDIAN building of the same type, everywhere
+   (Footprint card, per-location list, Location page, opportunity engine).
+   Flat 20% only when floor area is unknown; capped at 35% of spend.
+   Best-in-class is still drawn as a reference line on the tiles — it just
+   isn't what savings are sized to. One setting controls it:
+   BEACON_OPP_RATES.efficiencyTarget in benchmarks.js (1.0 = median).
+
+9. FUEL TYPE: template column G now has an Electric/Gas dropdown. The upload
+   reads "Electricity", "Natural Gas", "Electric - Primary" etc. as Electric
+   or Gas and TELLS you it interpreted them. Rows that are neither (water,
+   steam) are left out and reported. 02_accounts_type_check.sql adds the
+   database rule; step 1 in it must return zero rows first — I checked
+   today: 311 Electric, 112 Gas, nothing else.
+
+10. EACH BUILDING USES ITS OWN TYPE (accounts.property_type) for EUI medians,
+    the Location page, and BPS caps. The client-level type is the fallback.
+
+11. ELECTRIC / GAS PARTICIPATION TILES ARE BACK on the Footprint page, with
+    the engine fixed (it read a field that never exists, so it could only
+    ever say "No Data"). On Vandelay-style data: "19 of 57 addressable
+    electric sites participating".
+
+══════════════════════════════════════════════════════════════════════════════
+DEAD SCREENS FOUND WHILE TESTING — FIXED
+══════════════════════════════════════════════════════════════════════════════
+These never rendered in 117. I confirmed each by loading 117 and 118 side by
+side in a browser.
+  - Footprint "Solar Potential" card: called a function that doesn't exist.
+  - Footprint "Total Addressable Opportunity" hero, the BPS heat map and the
+    eligible-programs alert: a function quit early because an element
+    deleted in May was missing, and took these three with it.
+  - Location page: a dual-fuel building's therms are back in the USAGE row
+    ("3,329,818 kWh · 44,183 therms").
+
+══════════════════════════════════════════════════════════════════════════════
+VERIFIED
+══════════════════════════════════════════════════════════════════════════════
+  - 1,024 profile scenarios: procurement identical to the cent on both
+    engines; every non-savings benchmark field unchanged.
+  - 690 BPS checks: NYC / Boston / Denver / Boulder / Montgomery unchanged.
+  - Whole app loaded in Chrome against a 57-building test portfolio, 117 vs
+    118: zero JavaScript errors in either (only network calls the test
+    machine can't reach).
+
+══════════════════════════════════════════════════════════════════════════════
+THINGS FOR YOU — NOT CHANGED
+══════════════════════════════════════════════════════════════════════════════
+  - The Footprint carbon chart now shows the path to MEDIAN, to match the
+    efficiency figure beside it.
+  - Denver's penalty: the module says $0.50/sqft, the Denver explainer text
+    says $0.70/sqft. Neither is sourced. Not changed.
+  - The Footprint savings card still says "< 12 mo payback" with no basis.
+  - The Location page "Annual Opportunity" still ADDS procurement +
+    efficiency + solar (the stacking the other screens avoid).
+  - Two educational paragraphs still describe the 30% solar ITC without the
+    2026/2027 deadlines.
+
+
+
+══════════════════════════════════════════════════════════════════════════════
+PREVIOUS BUNDLE NOTES (117 and earlier)
+══════════════════════════════════════════════════════════════════════════════
+
+BEACON DEPLOY BUNDLE — beacon_index_117
+(Finishes the citation cleanup — 116 missed the Pro tiles, which are the most
+ visible ones. Plus everything from 98-116.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-09-17. Base: the bundle currently live on beacon.gridientsuite.com
+(Netlify deploy 6aa4e1df5a330d4366e4bc5a).
+
+117 follows 98-116 and is CUMULATIVE — deploy this one alone.
+A "97" was built in a previous session that was lost before deploying, so
+93-97 never shipped.
+
+TWO NEW FILES: demo_bills.js (since 104) and sources.js (since 116). Both are
+loaded by index.html, so if you deploy by dragging the folder, make sure they
+go up with the rest.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 117 — WHAT 116 MISSED
+══════════════════════════════════════════════════════════════════════════════
+
+116 claimed the citations were off the product. They were not. I scoped that
+job by searching index.html and never checked beacon_pro_renderer.js, which
+draws the Pro tiles on the Intelligence page — and those carry the LARGEST
+source blocks in the whole product. Reference Building Comparison, Carbon,
+VPP/DR, Bill Anomaly Detection and Weather-Normalized M&V each had a
+multi-line caps-lock SOURCE paragraph under it. Those were the ones actually
+dominating the page.
+
+Six blocks removed from that file:
+
+  - The generic shell-tile SOURCE line, which put an attribution under EVERY
+    Pro tile including the locked ones.
+  - DOE Commercial Reference Buildings · EnergyPlus prototypes, plus the
+    "EUI is total site energy (electricity and gas, converted to kBtu) over
+    floor area counted once per building" definition.
+  - EPA eGRID2023 · total output · GHG Protocol location-based · AR5 GWP.
+  - FERC Order 2222 · typical ISO capacity + energy rates.
+  - Per-meter degree-day regression · NOAA climate normals · residual scoring.
+  - Degree-day regression, ASHRAE Guideline 14 acceptance thresholds and the
+    BPA R² ≥ 0.75 reference.
+
+All six are on the Sources page. FERC Order 2222 was not in the registry when
+I removed it from the tile, so it is now — with the caveat it was carrying,
+that the VPP range comes from monthly load factors rather than metered
+interval demand and is not a quote.
+
+TWO THINGS I DELIBERATELY DID NOT REMOVE, because neither is a citation:
+
+  1. **The coverage caveat on the EUI tile.** It was embedded inside that
+     DOE source block, so removing the block naively would have taken it
+     with it. It says "this verdict covers 87% of the portfolio — the
+     excluded buildings are listed above", which changes how you read the
+     number. It survives as a compact amber line.
+
+  2. **The demo-data disclosure.** Synthetic numbers have to be labelled
+     where they are shown. What I did remove was the four-line block
+     underneath it, which repeated what the one-line amber ribbon already
+     said. The only phrase in it doing real work was "not quotable", so that
+     moved into the ribbon: "Demo data · synthetic bills · real NOAA normals
+     + real regression · not quotable". Same warning, one line instead of
+     five. There is now a comment in the source saying that disclosure must
+     never be removed from those tiles.
+
+I also swept EVERY module this time rather than the two I happened to open.
+What is left in the .js files is code comments and provenance FIELD names
+(btypeSource, sqftSource) — data that feeds the estimation chips, not text
+rendered anywhere. And the methodology intro on the Sources page still
+described "the SOURCE chip beneath each metric", pointing at something that
+no longer exists; that is rewritten.
+
+A NOTE ON HOW THIS WENT WRONG, because it is worth recording: I removed the
+Pro-tile blocks with one regular expression that matched from each block's
+start through the next semicolon. Across multi-line concatenations it
+over-matched and deleted 209 lines instead of 25, taking lockedTile() and
+tileEmissions() with it. Caught by diffing the output against 116 before
+building anything. Restored and redone by explicit line ranges, then verified
+function by function. The diff against 116 is now exactly 25 removed lines,
+all of them citations, with every tile function accounted for.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 116 — 1. THE CITATIONS ARE OFF THE PRODUCT
+══════════════════════════════════════════════════════════════════════════════
+
+Every inline source line was mine. I was fixing bugs where numbers were
+silently wrong, and my reflex was to print the basis next to the number so it
+could not lie again. Right for debugging, wrong for a product you are selling.
+It read as a working document.
+
+The line I drew, because it decides what goes and what stays:
+
+  A SOURCE CITATION is a credential. "CBECS 2018", "eGRID2023 Rev 2", "NOAA
+  1991-2020 Normals". It matters enormously for defensibility and not at all
+  in the second someone reads a number. One page, off the analysis surface.
+
+  AN ESTIMATION FLAG is different in kind. "This floor area is modelled, not
+  reported." That changes how you read THAT number, so it stays next to it —
+  but as a chip, never a sentence. Those are untouched.
+
+REMOVED FROM THE PAGES:
+
+  - The SOURCE chip under every Intelligence tile (5 of them), each with its
+    own external link.
+  - The "SOURCES: EIA · GridStatus (5 ISOs) · EIA Short-Term Energy Outlook"
+    bar across the top of Market Intelligence.
+  - Four per-panel lines of the form "Source: EIA Weekly Natural Gas Storage
+    Report (NW2_EPG0_SWO_R48_BCF)".
+  - The 76-line "Data Sources & Methodology" accordion sitting directly under
+    the analysis. The content was good. The placement made the page look like
+    a reference document.
+  - The CBECS edition string printed under the EUI number.
+
+  Nothing was deleted. All of it is on the new page.
+
+WHAT REPLACED IT:
+
+  A "Sources & Methodology" link in the footer, opening one page with 18
+  primary sources in 6 groups — benchmarks, emissions factors, prices and
+  market data, weather, M&V, regulation and incentives — each with its
+  edition, what it is used for, and any caveat that matters. The seven
+  per-metric derivations moved there intact, under "How each figure is
+  calculated". A closing section explains what Metered, Estimated and Partial
+  mean, so the chips on the tiles do not each have to explain themselves.
+
+  A footer link and a subpage overlay, deliberately, not a nav tab. Reference
+  material someone visits on purpose should not take a slot in the primary
+  navigation — and the nav is being left alone until the Phase 2 redesign.
+
+BUILT SO IT DOES NOT HAVE TO BE DONE TWICE. This is the part that matters for
+the redesign.
+
+  sources.js holds ONE registry, window.BEACON_SOURCES. Every citation in the
+  product is one entry. The page renders itself from it. Adding a source is
+  adding an object; changing an agency's edition is editing one field.
+
+  Nothing else in the app renders a citation any more. So when the redesign
+  moves components around, the citations follow automatically instead of being
+  re-hunted through 22,000 lines of markup a second time. That was the whole
+  point of doing it this way rather than deleting lines by hand.
+
+One thing I kept, and I want to flag it so you can overrule me: the ENERGY
+STAR tile still shows a recency line — "EPA-verified · scored 3 days ago". I
+stripped the source link out of it but kept the freshness, because how current
+a verified score is cannot be recovered from anywhere else on screen, and a
+stale EPA score is a different fact from a fresh one. If you would rather that
+go too, it is one line.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 116 — 2. THE BPS $0 PATCH IS MERGED
+══════════════════════════════════════════════════════════════════════════════
+
+Applied from the overnight run's findings doc, with its regression re-run
+here against bundle 115 as the baseline: **455 scenarios — 13 jurisdictions x
+7 building types x 5 square-footage tiers spanning every threshold boundary —
+zero drift.** No dollar figure that previously computed moves by a cent.
+
+What it fixes: a Seattle building, and any building type missing from a
+penalty cap table (data centers, schools, colleges), reported $0 exposure
+while still being counted in "sites in scope". Two tiles on the same page
+described different portfolios, and $0 read as "no risk" when it meant "we
+cannot compute this".
+
+The mechanism was not what the worklist claimed. Nothing multiplied by a
+null — one collapsed guard evaluated false and the jurisdiction fell through
+to the branch written for places that have published no penalty schedule at
+all. Three different states, one output. Now separated:
+
+    no-cap-table        per-ton ordinance with no cap table   (Seattle)
+    no-cap-for-btype    caps exist, none for this type        (k12, data ctr)
+    no-penalty-rate     per-ton ordinance with no $/tonne
+    no-penalty-schedule jurisdiction published none           (DC, MD, OR)
+
+The return now carries sitesNotDollarized, sqftNotDollarized and
+exposureIsPartial, so a headline can say "partial" instead of implying zero.
+
+Also folded in:
+
+  - The building ledger is resolved AFTER the jurisdiction loop instead of
+    during it. The old version was order-dependent: a building first seen
+    under a jurisdiction that could not dollarize was marked seen, so when a
+    later jurisdiction did dollarize it, its coverage status never updated.
+  - Cap-key aliases, plus a normalizer, so the ENERGY STAR display labels
+    resolve. Verified: 'k12' and 'K-12 School' now take the same path, as do
+    'warehouse' / 'Warehouse (Non-Refrigerated)', 'retail' / 'Retail Store',
+    'supermarket' / 'Supermarket/Grocery Store', 'hospitality' / 'Hotel'.
+    Before, of those labels only "Office" resolved to a cap.
+  - Seattle's phase labels were inverted. Verified against the City's BEPS
+    Policy Guide (Jan 2026): 2027 is the first REPORTING deadline, 2031 the
+    first COMPLIANCE deadline. As shipped, Beacon told a Seattle owner they
+    had to comply four years before they do.
+
+STILL OPEN, and it needs you, not me: Seattle's caps are not populated, so
+Seattle still reports as pending rather than in dollars. Populating them
+requires fixing EGRID_KG_PER_KWH['WA'] in the same change — Seattle's targets
+are low precisely because City Light is carbon-free hydro, and pairing a
+correct low cap with the US-average grid factor would overstate Seattle
+penalties badly. The $10/tonne rate in the catalogue is also unsourced; I
+could not find it wrong, but I could not find it right either.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 116 — 3. PROCUREMENT SAVINGS: 8% OF SUPPLY
+══════════════════════════════════════════════════════════════════════════════
+
+Your call, taken as given: top of the documented range.
+
+Was 12% of the customer's entire energy bill. A broker can only move the
+supply portion — delivery, transmission, capacity and taxes are not
+negotiable. index.html already held OPP_SUPPLY_FACTOR = 0.65 for exactly this
+split, and the documented capture range is 3-8% of supply. 12% of all-in
+worked out to roughly 18% of supply, more than double the top of the range.
+
+Now 0.65 x 0.08 = 5.2% of all-in spend, and it reads window.OPP_SUPPLY_FACTOR
+when index.html has defined it, so the two constants can never drift apart.
+
+What this does to the headline:
+
+    annual spend      old (12% all-in)      new (8% of supply)
+    $480,000          $57,600               $24,960
+    $1,000,000        $120,000              $52,000
+    $2,400,000        $288,000              $124,800
+
+That is a real reduction in a number your team has been quoting. It is also
+the number you can put in front of a client and defend line by line.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 115 — THIS ONE IS LIVE, AND IT IS THE WORST KIND FOR THIS PRODUCT
+══════════════════════════════════════════════════════════════════════════════
+
+**One of your customers is being shown an estimated ENERGY STAR score for a
+building type EPA does not score at all.**
+
+Here is the chain. The building type used by all the math comes from
+`customers.type`. I read what that column actually contains in production:
+
+    Healthcare · Hospitality · Manufacturing · office · Retail ·
+    Supermarket · Warehouse
+
+Those are capitalised display words. The math indexes by lowercase slugs. Six
+of the seven lowercase straight onto a valid slug and are fine. One does not:
+
+    'Manufacturing' -> 'manufacturing' -> not a slug at all.
+
+The correct slug is `industrial`, whose own display label is literally
+"Manufacturing/Industrial".
+
+By itself that would be survivable — an unknown type falls back to a median
+EUI of 80, and industrial's median IS 80, so the EUI happens to come out
+right. The ENERGY STAR tile is where it turns into a real problem, because
+eligibility was asked like this:
+
+    var essEligible = window.BTYPE_ESS_ELIGIBLE[btype] !== false;
+
+That **fails open**. An unrecognised slug gives `undefined`, and
+`undefined !== false` is `true`. So the building is treated as ENERGY STAR
+eligible and an estimated score is calculated and displayed.
+
+Measured, on an identical building:
+
+    btype 'Manufacturing' (as stored)  ->  eligible: true   score shown: 67
+    btype 'industrial'    (correct)    ->  eligible: false  score shown: none
+
+EPA does not certify manufacturing plants. The table in benchmarks.js already
+knew that — `industrial: false` has been sitting there correctly the whole
+time. The lookup simply never reached it.
+
+Of everything found in this codebase so far, this is the one I would least
+want in front of a client. An EUI that is 10% off is a bad estimate. A
+number labelled ENERGY STAR, for a property class the program does not
+cover, is a different category of wrong.
+
+FIXED TWO WAYS, because either one alone would leave the door open:
+
+  1. **Normalise the type once, at the boundary.** `beaconNormalizeBtype()`
+     maps every spelling that actually reaches us onto a canonical slug —
+     the production `customers.type` values, the EPA/ENERGY STAR property-type
+     display labels (which are the only building-type vocabulary in the
+     database: "Warehouse (Non-Refrigerated)", "Supermarket/Grocery Store",
+     "Hospital (General Medical & Surgical)" and the rest), and the obvious
+     synonyms. It is applied in the Supabase loader and at the top of
+     computeBenchmarks, so every lookup downstream sees the same slug instead
+     of each one lower-casing and hoping.
+
+     Something it deliberately does NOT do: guess. An unrecognised type is
+     returned unchanged, so it stays visibly unknown rather than being
+     quietly mapped to something plausible.
+
+  2. **Fail closed on eligibility.** `beaconEssEligible()` now requires an
+     explicit `true` in the table. Unknown type means no score. This is the
+     same convention as the fail-closed property_type trigger. Verified that
+     every genuinely eligible type still scores normally — Retail, Office,
+     Healthcare, Supermarket and Warehouse all unchanged.
+
+Credit where it is due: this came out of a question the first overnight run
+raised. It suspected the full EPA label set was being passed as `btype` and
+flagged that only someone with `index.html` open could confirm it. The
+suspicion was broader than the truth — six of seven values are fine — but it
+pointed straight at the one that is not.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 114
+══════════════════════════════════════════════════════════════════════════════
+
+FIRST, THE HONEST PART: most of this is a LATENT fault, not an active one.
+
+I checked the live database before changing anything. Every meter in
+production is typed either exactly "Electric" (311 meters) or exactly "Gas"
+(112). Every one of them matches the old tests. **So the spend card, the EUI
+numbers and the map are not wrong on screen today.** I'd rather tell you that
+plainly than let a changelog imply I found something burning.
+
+What I did find is that meter type was being tested three different ways in
+three different places, none of them agreeing, and the upload parser stores
+whatever the customer types with no normalisation at all. It holds together
+only because every row so far happens to say "Electric" or "Gas".
+
+The first customer who types something else breaks it, and it does not break
+loudly. It breaks like this:
+
+  "Electricity" or "Elec"   Dropped from the Footprint spend headline
+                            entirely. Contributes $0, disclosed nowhere. The
+                            card just shows a smaller number.
+
+  "Natural Gas"             Worse. The gas test was `indexOf('gas') === 0` —
+                            the type had to START with "gas". "Natural Gas"
+                            fails it, so the meter is not recognised as gas
+                            and is priced as ELECTRICITY: 50,000 therms at
+                            $0.1275 instead of $1.20. An 89% understatement
+                            of that meter's spend.
+
+                            And in perloc.js, which feeds the map and the
+                            carbon card, those 50,000 therms were added to
+                            electricKwh — counted as 50,000 kWh. On a test
+                            building that moves site energy from 8,412,000
+                            kBtu to 3,582,600. The EUI is off by 2.35x, in
+                            the flattering direction.
+
+Fixed by classifying in ONE place. `window.beaconMeterKind()` handles the
+spellings that actually turn up on a utility statement — Electric,
+Electricity, Elec, Gas, Natural Gas, NG, Propane — and returns 'other' for
+anything it does not recognise rather than guessing. A water or steam meter
+is now counted and DISCLOSED ("2 meters not priced" under the spend figure)
+instead of being quietly valued at the electricity rate to make the total
+look complete. A blank type keeps exactly its old treatment, so no existing
+portfolio's numbers move.
+
+SECOND, SOMETHING THAT IS WRONG RIGHT NOW: THE CARBON HEADLINE IS MISSING
+SCOPE 1.
+
+The Footprint Carbon Footprint card sums grid electricity only. Every
+location object it walks already carries gasTherms, and it ignores them.
+
+This matters because two other things already disagree with it. The Carbon
+methodology modal shown to the client states outright that natural gas
+combustion is included where gas usage is reported. And computeBenchmarks —
+fixed back in 112 — does include Scope 1. So the portfolio headline on
+Footprint has been smaller than the per-building numbers behind it, and
+smaller than what the modal promises.
+
+On your current portfolio's 4,367,974 therms that is 23,181 tCO2e absent
+from the headline — the number goes from 434,624 t to 457,805 t, up 5.3%.
+The sub-label said "scope 2 emissions" while the number was scope 2 only;
+it now says "scope 1 + 2" when there is gas in the portfolio.
+
+THIRD: THE REC NUMBER INCLUDED THERMS.
+
+`_recStats` decides the "RECs Required" MWh figure. It tested
+`a.accountType`, and the upload parser never writes that field — it writes
+`a.type`. So on any upload-sourced portfolio every gas meter failed the test
+and had its therms added to the electric total.
+
+On your portfolio: 900,500 MWh quoted where 896,132 is correct. 4,368 MWh of
+RECs that are not required. It is only half a percent, but it is a
+procurement figure with a price attached to it, and it should not contain a
+fuel that cannot carry a REC at all.
+
+Verification for all of the above is reproducible: classifier tested against
+20 type spellings, perloc re-run on a dual-fuel building with a "Natural Gas"
+meter and a water meter, blank-type behaviour confirmed unchanged, and the
+carbon and REC arithmetic run against the real 896,131,901 kWh / 4,367,974
+therm production totals.
+
+══════════════════════════════════════════════════════════════════════════════
+NEW IN 113
+══════════════════════════════════════════════════════════════════════════════
+
+All three are the same shape, and it is the shape almost every bug in this
+codebase has had: a correct value exists, and something downstream drops it
+and substitutes an estimate. Nothing errors. The screen just quietly shows a
+worse number than the data supports.
+
+1. REPORTED SQUARE FOOTAGE ON A SIBLING METER WAS THROWN AWAY.
+
+   A building with an electric and a gas meter is two rows in the portfolio.
+   The sqft estimator was only ever shown the FIRST row. If that row's Square
+   Feet cell was blank — very often the gas row — the real floor area sitting
+   on the other row was ignored and the building was modelled from CBECS
+   medians instead.
+
+   That estimate's own stated confidence band is 0.70x to 1.50x. Everything
+   downstream rides on it: EUI, $/sqft, kg CO2/sqft, solar array sizing, and
+   the 25,000-sqft threshold that decides whether a building is even in scope
+   for a Building Performance Standard. A 42,000 sqft building was being
+   modelled at 63,385 — which is the difference between "covered by the
+   ordinance" and "not covered."
+
+   The building-level maximum was already being computed twelve lines above.
+   It is now handed to the estimator, at both call sites (map popup and
+   Location page), so "reported wins, always" holds per BUILDING rather than
+   per first-row.
+
+2. THE CONTRACTED SUPPLY RATE NEVER DISPLAYED.
+
+   Both ingest paths collect a real per-account supply rate — the Supabase
+   loader from rate_cents / supply_rate_cents, the upload parser from the
+   "Supply Rate (c/kWh)" column. The Location page has a branch that upgrades
+   the identity grid from "STATE AVG RATE" to a true "your rate vs state avg
+   (+/-%)" comparison whenever that rate is present.
+
+   The object passed into that renderer never carried the field. The branch
+   could not fire. Every location displayed the state average — including the
+   ones where we hold the signed contract. A client locked at 8.9c in a 12.4c
+   state was shown "12.4c/kWh - Deregulated", which is not their rate, and
+   worse, buries the fact that their procurement is working.
+
+   Rate is c/kWh, so it is taken from the building's largest ELECTRIC meter;
+   a gas row's rate column is $/therm and must never be printed as cents.
+
+   Two smaller things surfaced alongside it:
+
+     - The guard on that whole row was `accountType !== 'Gas'` — an exact,
+       case-sensitive match against one spelling. The loader emits lowercase
+       'gas', so gas-only buildings sailed past it and were shown a state
+       average ELECTRIC rate, in a unit they have no meter in.
+
+     - Rate parsing stripped every character that wasn't a digit or a dot,
+       which removes a minus sign. A mis-keyed -8.9 became +8.9, cleared the
+       "greater than zero" sanity check, and shipped as a real contracted
+       rate. Fixed in all three places that parse a rate.
+
+3. THE CLIMATE ARGUMENT WAS ACCEPTED AND NEVER READ.
+
+   The Location page passes the building's city into computeBenchmarks, and
+   the comment at that call site says it lets the function "pick the ASHRAE
+   climate-zone-aware EUI adjustment instead of the coarser state-level
+   bucket."
+
+   The function never touched the argument. The median EUI was adjusted by a
+   single per-state number, so San Diego and Redding, Miami and Tallahassee,
+   Seattle and Spokane were all held to the same expectation. The comment
+   described behaviour that did not exist — which is worse than the coarse
+   bucket, because it invites trust in a precision the number never had.
+
+   This was implemented rather than deleted, because the data to do it
+   properly already ships in the bundle. weather_norm.js resolves a city to
+   its NOAA station and ASHRAE 169 zone; reference_buildings.js holds DOE
+   prototype total EUI per zone. When a building's city zone differs from its
+   state's default zone, the median is scaled by the ratio of the DOE
+   reference totals for those two zones — same dataset, same building type,
+   only the climate differs, so the ratio isolates the climate effect alone.
+
+   Deliberately conservative. It collapses to exactly the old behaviour when
+   the city resolves to the state's own zone, when no station matches, or
+   when the building type has no DOE prototype, and it is clamped to
+   0.75-1.35 because a correction outside that band means the lookup went
+   wrong, not that the building is somewhere extraordinary.
+
+   One trap worth recording, because it is the same bug this fix exists to
+   remove: the station lookup silently falls back to the STATE's principal
+   station when a city name isn't in the index, and still returns a zone.
+   Taking that zone would have handed a Tallahassee building Miami's 1A and
+   labelled it zone-precise — a state-level number wearing a city badge. The
+   correction now requires a genuine city match.
+
+   Benchmarks return climateBasis ('city_zone' or 'state'), climateZone and
+   climateAdj, so a panel can state which basis it used rather than implying
+   zone precision on a state-level number.
+
+   Verified: San Francisco office median 43 vs Los Angeles 48 (same state);
+   Tallahassee, unknown cities, unknown building types and missing states all
+   collapse to adj 1.000 / basis 'state'; the building's ACTUAL EUI does not
+   move with city — climate adjusts the expectation, never the meter.
+
+══════════════════════════════════════════════════════════════════════════════
+STILL TRUE FROM 112 — READ THIS PART EVEN IF YOU READ NOTHING ELSE
+══════════════════════════════════════════════════════════════════════════════
+
+Two of the Pro tiles — Bill Anomaly Detection and Weather-Normalized M&V —
+were sitting dark because Beacon holds annual totals and both need a monthly
+billing history. Real bills arrive with Phase 2's parser. To be able to show
+them before then, demo accounts now get a synthetic billing history.
+
+Running the real math over that history immediately failed, and the failures
+were not in the fake data. They were in the shipped modules, which had never
+been executed end to end because no tile called them. Two genuine bugs:
+
+  1. Weather-normalized savings were inflated by roughly 5x. The function
+     that produces the annual figure added ONE month of baseload to a FULL
+     YEAR of weather-driven load, discarding 11/12 of the weather-independent
+     consumption. On a test account with a known 8% efficiency gain it
+     reported 44.8% savings. Corrected, it reports 8.2% and reproduces the
+     metered 12-month totals to within 0.03%.
+
+     If those tiles had been wired without this being caught, Beacon would
+     have shown a client a fabricated 45% savings claim.
+
+  2. The anomaly detector was flagging winter. It computed a weather-adjusted
+     prediction for each month and then ignored it, scoring raw consumption
+     instead — so in any building with a heating or cooling load, January
+     itself read as an anomaly. Across four test meters it returned 2-5 false
+     positives each and missed the actual planted excursion in 3 of 4.
+
+Both are fixed, with the reasoning written into the source at the point of
+change. Details in the numbered sections below.
+
+══════════════════════════════════════════════════════════════════════════════
+WHAT'S FIXED
+══════════════════════════════════════════════════════════════════════════════
+
+000000000. THE EUI TILE WAS THROWING AWAY GAS.  ** NEW IN 107 **
+
+   Reference Building Comparison opened its loop with:
+
+       if (acctType(acct) !== 'electric') return;
+
+   So a building's GAS meter was skipped entirely, while its ELECTRIC meter
+   supplied both the consumption and the floor area. EUI is total SITE energy
+   per square foot. Dropping a fuel understates it, and it understates in one
+   direction only — so every building with gas looked more efficient than it
+   actually is, and the tile has been flattering them since it shipped.
+
+   Measured on the live portfolio: mean EUI 57.4 electric-only against 64.4
+   all-fuel. A 12.3% understatement across the whole portfolio, and far worse
+   on the 110 buildings that actually have gas.
+
+   On a heating-dominated building it is not a rounding error. Same school,
+   same data, before and after:
+
+       electric only          68.2 kBtu/sqft   -13.1%   "Below reference"
+       with its own gas meter 128.2 kBtu/sqft   +63.4%   "Investigate"
+
+   A complete verdict reversal. Anyone shown the old number was told a
+   gas-heated building was beating its class when it was overrunning it.
+
+   FIXED, and the fix is structural rather than a patched conditional:
+   meters are now aggregated into BUILDINGS before anything is computed.
+   All fuels are converted to kBtu (electric x 3.412, gas x 100) and summed;
+   floor area is taken as the MAX across a building's meters, never the sum,
+   because a two-meter site would otherwise double its own area and halve its
+   EUI. Buildings are keyed on location_id, falling back to the store-code
+   convention (VAN-MO060 pairs with VAN-MO060-G) when the upload path has not
+   supplied one.
+
+000000000b. EXCLUDED BUILDINGS WERE SILENT.  ** NEW IN 107 **
+
+   The same tile dropped any building it could not compare with a bare
+   `return` and never counted it — then printed a confident portfolio verdict
+   over whatever subset happened to survive.
+
+   The biggest cause is not a bug in Beacon, it is a real gap in the source
+   data. DOE publishes medium_office for all 15 climate zones, but every
+   other prototype for only 2A / 4A / 5A (+6A for some). A warehouse in
+   California (3B) or a supermarket in Georgia (3A) has NO reference to
+   compare against and simply vanished. 62 of the 311 live locations sit in
+   such a zone.
+
+   The tile now counts and NAMES every exclusion, with its reason:
+
+       Buildings compared            1 of 3
+       Excluded - no DOE prototype   2 (Warehouse in zone 3B, Supermarket in zone 3A)
+       Excluded - no property type   1
+
+   and when coverage drops below 90% the source line says so outright:
+   "This verdict covers 33% of the portfolio - the excluded buildings are
+   listed above and are not represented in the figure."
+
+   A verdict over 60% of a portfolio is a different claim from a verdict over
+   all of it, and the tile no longer lets those two look alike.
+
+0000000000000. EUI WAS BACK-SOLVED FROM DOLLARS, EVEN WITH METERS ON FILE.
+                                                        ** NEW IN 112 **
+
+   computeBenchmarks derives energy from SPEND. That is a fair fallback when
+   only spend is known — but it was being used by callers that had the real
+   metered kWh and therms sitting in a variable a few lines above.
+
+   Converting the whole bill at the ELECTRIC rate values a therm at
+   (gasRate x 3.412 / stateRate) kBtu instead of 100 — about 29 kBtu at
+   12.75c, 43 at 8.66c, 14 at 26.8c. Gas entered at 14-43% of its real
+   energy content.
+
+   Measured on a 1,000,000 kWh + 50,000 therm building:
+       true site energy     8,412,000 kBtu   EUI 84.1
+       back-solved          7,100,000 kBtu   EUI 71.0   (-15.6%)
+       with real meters                      EUI 84.0   (exact)
+
+   Heating-dominated buildings ran far worse. And because the shortfall is
+   multiplicative, such buildings landed below 0.85 x median and printed a
+   green "Better than median" verdict essentially by construction.
+   perloc.js has always done this correctly — which is why the Portfolio Map
+   and the Location page showed DIFFERENT EUIs FOR THE SAME BUILDING.
+
+   Two more defects in the same function, same root:
+
+   · TWO FUEL SPLITS, THIRTY LINES APART. The EUI line treated 100% of spend
+     as electric. The carbon line used 70%. Both were rendered side by side,
+     so carbon intensity read ~30% below the energy intensity printed next to
+     it, and the two could not be reconciled by fixing either one alone.
+
+   · SCOPE 1 WAS MISSING WHILE THE MODAL SAID IT WAS INCLUDED. Beacon's own
+     Carbon methodology text tells the user "Natural gas combustion (Scope 1)
+     is also included where gas usage is reported" and cites EPA's 53.07 kg
+     CO2/MMBtu. There was no therm term anywhere in the function. On a
+     50,000-therm building that is 265 tCO2e simply absent — enough to flip
+     the carbon verdict from red to green.
+
+   FIXED: computeBenchmarks takes an optional {electricKwh, gasTherms}. When
+   present, energy and carbon both come from the real meters and NO fuel split
+   is assumed at all; Scope 1 is computed from therms. When absent, ONE named
+   constant (ELECTRIC_SHARE_OF_SPEND) feeds BOTH paths, so they can no longer
+   disagree. The return now carries `energyBasis` ('metered' or
+   'estimated_from_spend') and `scope1TCO2` so a panel can state its basis.
+   Both call sites that hold real usage now pass it.
+
+0000000000000b. TWO HEADLINE OPPORTUNITY TOTALS, 35% APART.  ** NEW IN 112 **
+
+   Beacon has two opportunity engines. opportunity_calc.js documents the
+   confirmed basis — percentage programs apply to SUPPLY spend, and since the
+   input is the all-in bill it applies a 0.65 supply factor first. The engine
+   inside index.html applied the SAME percentages to all-in spend with no
+   haircut.
+
+   So every supply-based program was overstated by exactly 1/0.65 = 1.54x
+   against its own stated basis. Community Solar uses an identical 8% constant
+   in both engines — one haircut, one did not.
+
+   And because the Footprint tab calls calcOpportunityValues while the
+   Opportunities tab uses the in-file engine, THE SAME PORTFOLIO SHOWED TWO
+   DIFFERENT HEADLINE ANNUAL-OPPORTUNITY TOTALS ON TWO TABS, roughly 35%
+   apart.
+
+   Each program now declares which base its percentage applies to
+   ('supply' or 'allin') and one helper applies the haircut. On a $2.4M
+   portfolio the supply-based programs move $336,000 -> $218,400. Efficiency
+   and Cost Recovery, which are defined against the all-in bill, are
+   unchanged.
+
+   *** THIS LOWERS THE HEADLINE OPPORTUNITY NUMBER. That is the correction. ***
+
+000000000000. TWO CRASHES WERE KILLING WHOLE PANELS.  ** NEW IN 111 **
+
+   The 22,000 lines of index.html had never been swept. Two of the findings
+   are not wrong numbers — they are exceptions that silently removed entire
+   sections of the product.
+
+   1. THE ENTIRE PER-LOCATION SECTION NEVER RENDERED, FOR ANYONE.
+      index.html called window.summarizePerLocation(locations, btype).
+      THAT FUNCTION WAS NEVER DEFINED — not in perloc.js, not in any loaded
+      script, nowhere in the build. A repo-wide grep returns exactly one hit:
+      the call site.
+
+      It threw a TypeError one line BEFORE the line that unhides the section,
+      and the caller's try/catch sent it to the console. #pl-sec ships with
+      display:none, so there was not even an empty state to notice. The
+      summary strip, the EUI distribution chart and the hit-list table have
+      simply never appeared, on any portfolio.
+
+      Now implemented, with its contract reconstructed from every summary.*
+      read in the file: total, withData, withoutData, bestEUI, medianEUI,
+      worstEUI, btypeMedian, totalSpend, totalAddressableSavings.
+
+   2. THE LOCATION PAGE DIED HALFWAY DOWN FOR ITS BEST-DOCUMENTED BUILDINGS.
+      A variable named vScore was READ four times and ASSIGNED NOWHERE.
+      ReferenceError, and renderLocationPage is not wrapped in try/catch at
+      its call site — so the EUI tile painted and then Cost/sqft, Carbon,
+      BPS, Solar, Rebates and Contract panels never rendered at all.
+
+      It fired for exactly the buildings that HAVE an EPA-verified ENERGY
+      STAR score and no city-disclosure match — the best-documented buildings
+      in the portfolio. The sibling branch ten lines above does the same
+      thing correctly with dScore.
+
+   3. computePerLocation EMITTED 9 FIELDS. THE RENDERERS READ 17.
+      The eight missing ones never threw; each degraded into a different
+      wrong thing on screen:
+        totalKbtu        -> "NaNk" in the Total kBtu/yr column
+        totalKbtu        -> $/MMBtu column permanently blank
+        accounts         -> "undefined accounts"
+        costPerSqft      -> $/sqft column permanently "-"
+        electricUtility  -> Rate-type column permanently "-", and the URDB
+                            live-refresh had nothing to populate
+        hasElectric/hasGas -> the map's fuel filter matched ZERO sites and
+                            rendered "0 / 12 MATCH"
+        status           -> EVERY pin on the portfolio map drew blue, which
+                            made the status legend purely decorative
+      All eight are now emitted. Same defect shape as computeEquivalencies
+      returning 2 of the 4 fields its caller read, fixed in 110.
+
+   4. EVERY CONTRACT ROW SAID "date unknown" UNDER A CORRECT DATE.
+      index.html reads c.daysUntilExp in three places; computeContractCalendar
+      set c.daysUntil. fmtDays(undefined) hits its null guard and returns
+      "date unknown", so each row showed the right expiry date, the right
+      urgency badge, and "date unknown" directly beneath them. The CSV
+      export's Days Until Expiration column was empty on every row.
+      Both names are now emitted rather than renaming one and breaking the
+      other reader.
+
+   5. THE PORTFOLIO RANK STRIP NEVER RENDERED.
+      beaconGetAllPortfolios()[cid] IS the array of accounts; the code read
+      .accounts off it, which is always undefined, so the list was always
+      empty and renderLocationPeerRank returned immediately. This file warns
+      about this exact mistake elsewhere ("NOT nested under .accounts - that
+      was a rev15 regression").
+
+   6. THREE MORE HARDCODED GAS RATES, AND TWO CASE-SENSITIVE STATE LOOKUPS.
+      $1.10/therm in three places against GAS_DOLLARS_PER_THERM = 1.20, the
+      rev49 single source of truth. So the Location page and the map popup
+      priced gas 8.3% BELOW what the Footprint card and the report showed for
+      the same building. Two of those sites also looked up
+      STATE_RATES_CENTS[state] without .toUpperCase(), unlike every other
+      rate lookup in the file — a lowercase state silently fell back to
+      12.75c, which is 52% low for MA and 47% high for WY.
+      All three now route through beaconSpend/beaconRateFor. There are no
+      hardcoded therm rates left in live code.
+
+   7. PARTICIPATION MODAL UNDERCOUNTED ELIGIBLE SITES.
+      _ppLocKey grouped on the address string alone, so two buildings at
+      "100 Main St" in different cities merged. The modal reads "N of your M
+      eligible locations participating" with M undercounted — worst on the
+      multi-site chains the modal exists for. Now address|city|state, the
+      same identity the rest of the app uses.
+
+00000000000. OVERNIGHT SWEEP — SEVEN MORE, SAME PATTERN.  ** NEW IN 110 **
+
+   Two auditors were run in parallel across every analytics module that had
+   not yet been checked, looking for one thing: a value that exists and is
+   then dropped or ignored before the answer. Everything below was verified
+   by hand afterwards — two of the reported findings did NOT survive
+   verification and were correctly left alone (noted at the end).
+
+   1. DEMAND-RESPONSE REVENUE WAS 6.25x TOO LOW  (program_intel.js)
+      The peak-load line multiplied by the load factor where the identity
+      requires dividing:
+          was:  (spend / 0.11) / 8760 * 0.4
+          is:   annualKwh / (8760 * loadFactor)
+      The identity is written in this codebase's own comment
+      (vpp_opportunities.js:128): peak_kw x 8760 x load_factor = annual_kwh.
+      Multiplying instead of dividing is wrong by 1/0.4^2 = 6.25x.
+
+      It was also physically impossible as labelled. annual/8760 is AVERAGE
+      kW, and peak can never be BELOW average, yet the tile read "est. peak
+      load". On the app's own default context (PA, $2.4M): 1.00 MW "peak"
+      against a 1.53 MW average. Now 3.82 MW, above average, as physics
+      requires. Revenue on that context goes $120K/yr -> $458K/yr.
+
+      The same line also hardcoded 11c/kWh — a NINTH consumer of the rev49
+      spend bug. It now uses the real per-state rate. Peak load is now
+      computed by BeaconVPP.estimatePeakKW, so there is ONE peak formula in
+      the codebase instead of two that disagreed.
+
+   2. SOLAR CAPACITY, PRODUCTION AND SAVINGS WERE DOUBLED  (openei.js)
+      Site count was deduped by address; floor area was NOT — it summed every
+      account row. A building with an electric AND a gas meter is two rows
+      carrying the SAME sqft, because the upload template instructs exactly
+      that. So every dual-fuel building counted its area twice, and everything
+      downstream is linear in area. A 50-site dual-fuel portfolio reported
+      ~11,000 kW DC instead of 5,500, and ~$1.96M avoided spend instead of
+      ~$982K. offsetPct could exceed 100%. Payback was the only figure that
+      survived, because cost and savings both doubled.
+      Area is now recorded per address and taken as the largest meter's value
+      there, matching how perloc.js resolves the same question.
+
+   3. EVERY MARKET KPI WAS FROZEN AT THE OLDEST DATA  (market_intel.js)
+      fetchSeries ordered ASCENDING and then applied LIMIT. PostgREST applies
+      LIMIT after ORDER BY, so that returns the OLDEST n rows ever written.
+      Every consumer then takes the LAST element as "latest".
+      So "Henry Hub spot $X.XX" was the 5th-OLDEST daily price in the table,
+      shown with a real-looking date, and it would stay frozen there forever
+      as the table grew. The storage panel, the 30-day delta and the printed
+      Beacon Brief all inherited it. No error, no empty state — correct while
+      the table was small, then silently stuck.
+      The author's own correct idiom sits 13 lines below, which is what makes
+      this a slip rather than intent. Now takes the newest n descending and
+      reverses back to ascending, so every existing consumer keeps working.
+
+   4. BUILDINGS IN DIFFERENT CITIES MERGED INTO ONE  (perloc.js)
+      The grouping key was the address string ALONE — no city, no state.
+      "100 Main St, Dallas TX" and "100 Main St, Boston MA" collapsed into one
+      record. Usage was SUMMED across both while floor area was reduced to the
+      larger of the two, so the merged building showed roughly double its real
+      energy intensity, invented a gap against the median, and converted that
+      gap into an addressable-savings dollar figure. The merged row also
+      inherited the FIRST account's state, so the other building's spend was
+      priced at the wrong state's rate.
+      Address collisions are a live condition in this data, not a
+      hypothetical. Key is now address|city|state.
+
+   5. OVERLAPPING BPS ORDINANCES DOUBLE-COUNTED THE PORTFOLIO
+      (bps_jurisdictions.js)
+      The catalogue deliberately holds both a city and a statewide entry for
+      the same state — WA:Seattle alongside WA:_STATE, MD:Montgomery
+      alongside MD:_STATE. A building matches both, and the portfolio totals
+      were accumulated per jurisdiction. One 200,000 sqft Seattle building
+      reported as 2 sites and 400,000 sqft. The function's own documented
+      contract says "distinct addresses across all jurisdictions".
+      Portfolio totals are now deduped on the same address|city|state identity
+      perloc.js uses. Per-jurisdiction rows still correctly show the building
+      under BOTH ordinances, because it really is in scope for both.
+
+   6. A DOE BENCHMARK DISAGREED WITH ITS OWN COMPONENTS
+      (reference_buildings.js)
+      primary_school 5A carried total 78.5 against end-use components summing
+      to 80.5. All 16 prototypes across every climate zone were checked; this
+      was the only one. compareToReference uses `total`, so every K-12 school
+      in a 5A state (CT, IL, IN, IA, MA, MI, NE, OH, PA, RI) was scored
+      against a benchmark 2.0 kBtu/sqft too low. Corrected, and the check is
+      now recorded in the file so the next edit can be re-verified.
+
+   7. THE EQUIVALENCIES PANEL THREW AND LEFT TWO TILES BLANK  (perloc.js)
+      computeEquivalencies returned carsOffRoad and homesPowered. index.html
+      reads FOUR — it also reads eq.forestAcres and eq.gallonsGas, which were
+      never set. fmtBig(undefined) throws, so the render aborted after the
+      first two tiles and the other two kept their placeholder dashes, under
+      a header promising all four. Now returns all four, using EPA's published
+      factors (0.84 t CO2/acre/yr, 8.887e-3 t CO2/gallon) — the same source as
+      the two that were already correct.
+
+   TWO REPORTED FINDINGS THAT DID NOT SURVIVE VERIFICATION, AND WERE LEFT
+   ALONE. Recording these because a rejected finding is as useful as a
+   confirmed one:
+     · "ISONE should be ISO-NE" — checked against the live table. It stores
+       ISONE, with 142,136 rows. market_intel.js is CORRECT as written.
+     · "developer.nlr.gov is a typo for nrel.gov" — the host resolves, via
+       cloud.gov / api.data.gov official infrastructure. Not a typo.
+
+0000000000. SPEND IGNORED THE REAL RATES IT ALREADY HAD.  ** NEW IN 109 **
+
+   Annual spend was computed in EIGHT separate places, each with the rule
+   written out by hand, and they did not agree:
+
+       six sites hardcoded   electric = kWh x $0.12
+       two sites used        electric = kWh x STATE_RATES_CENTS[state]
+
+   Beacon ALREADY loads real per-state EIA commercial rates into
+   window.STATE_RATES_CENTS from state_retail_rates_latest. The comment on
+   that loader states the override "makes every Beacon spend + savings figure
+   real-sourced." It did not. Six of the eight consumers never read it.
+
+   THIS IS NOT A ROUNDING ERROR, AND IT IS NOT EVEN IN ONE DIRECTION.
+   The loaded EIA rates run 8.66c to 26.78c/kWh, so a flat 12c is wrong at
+   both ends — and the sign of the error depends on where the client is:
+
+       customer                      old (12c)     with real rates    change
+       Riverside Medical (MA)          510,266         1,018,972      +99.7%
+       Hartwell Grocery (MA)           408,936           816,620      +99.7%
+       Granite Auto Parts (MA)          61,368           122,549      +99.7%
+       Pinecrest Senior Living (MA)    171,000           232,611      +36.0%
+       Vandelay Industries (natl)  110,502,327       143,012,444      +29.4%
+       Brazos Manufacturing (TX)       781,200           707,404       -9.4%
+       Hill Country Hospitality (TX)    95,632            69,021      -27.8%
+       Lone Star Logistics (TX)         88,268            63,706      -27.8%
+       Travis County Cold Storage      158,400           114,323      -27.8%
+
+   A Massachusetts client's spend was HALF what it should have been. A Texas
+   client's was 38% too high. Anyone quoting a Massachusetts portfolio was
+   understating their bill by half — and spend feeds calcOpportunityValues(),
+   so every opportunity dollar carried the same error.
+
+   Worse, because the eight sites disagreed, THE SAME PORTFOLIO SHOWED
+   DIFFERENT SPEND IN DIFFERENT PANELS depending on which formula the panel
+   that rendered it happened to use.
+
+   FIXED: one helper, window.beaconSpend() / beaconSpendFor(), defined once at
+   body start and called by all eight sites. Electric uses the live EIA rate
+   for the meter's own state; the 12.75c fallback fires only where EIA has no
+   row for that state. Gas stays a flat $1.20/therm — there is no per-state
+   gas table in Beacon, and inventing one would be worse than a stated
+   constant. window.beaconSpendBasis() reports how many meters used a live
+   rate vs the fallback, so a panel can say which rather than implying
+   precision it does not have.
+
+   If the rate model ever changes it changes in one place now, not eight.
+
+   *** EXPECT YOUR DOLLAR FIGURES TO MOVE WHEN YOU DEPLOY THIS. ***
+   That is the fix landing. The new numbers are the sourced ones.
+
+000000000d. LOADER AUDITED END TO END.  ** NEW IN 108 **
+
+   After the property_type gap below, the same question was asked of every
+   other column rather than waiting to trip over the next one: for each column
+   in public.accounts and public.locations, is it SELECTed, and is it emitted
+   by the transform that turns a Supabase row into a Beacon account row?
+
+   Result: no remaining gaps of that class. Two columns are selected and not
+   emitted, and both are correct — customer_id arrives as a function argument
+   and is emitted as clientId, and lifecycle_status is a query filter that
+   nothing downstream needs.
+
+   Five columns WERE being fetched and dropped with nothing reading them:
+   meter_number, term, sign_date, source_system and (harmlessly) the embedded
+   locations id/customer_id/status. They are now emitted anyway. Emitting an
+   unused key costs nothing; dropping a needed one costs an afternoon, and
+   the next panel that wants a contract term would otherwise hit this exact
+   bug a fourth time. The rule is written into the function itself: if a
+   column is in the SELECT, it must be emitted here.
+
+000000000c. THE LOADER WAS DROPPING property_type.  ** NEW IN 107 **
+
+   The Supabase accounts query SELECTED property_type and the transform that
+   turns a Supabase row into a Beacon account row then threw it away.
+
+   So build 104 taught the upload to WRITE the column, build 103 taught the
+   renderer to READ it, and nothing in between carried it across. Every
+   per-building property type fell through to the customer-level btype
+   fallback, which means the entire server-side backfill was invisible to the
+   UI and every building in a customer was still being typed identically.
+
+   store_code had the same shape of bug in the other direction: the renderer
+   reads `store_code`, the transform only emitted `storeCode`, so every
+   Supabase-loaded account rendered a BLANK store code in tile detail rows.
+
+   Both keys are now emitted in both spellings rather than renaming one and
+   breaking the upload path. property_type_source and annual_usage_source are
+   carried across too, so the client can tell a real value from a fabricated
+   one.
+
+00000000. TWO PROPERTY-TYPE VOCABULARIES, THREE SILENT DROPS.  ** NEW IN 106 **
+
+   Found while backfilling accounts.property_type on the server. There are
+   TWO property-type vocabularies in Beacon and they are not the same:
+
+     accounts.property_type   EPA TARGET FINDER values. Its own column
+                              comment lists the eight, and energy-star-score's
+                              TYPE_MAP requires these exact strings.
+     the renderer's crosswalk  outputs DOE Commercial Reference Building
+                              prototype names, because that is what the
+                              reference tile compares against.
+
+   Three of the eight differ between them:
+
+     EPA                                       DOE
+     Hospital (General Medical & Surgical)  ->  Hospital
+     Supermarket/Grocery Store              ->  Supermarket
+     Warehouse (Non-Refrigerated)           ->  Warehouse
+
+   The crosswalk had only the DOE spellings as keys. So filling the column
+   with its OWN DOCUMENTED VALUES resolved to null for those three, and every
+   hospital, supermarket and warehouse would have been silently EXCLUDED from
+   the reference comparison. No error, no empty tile, no warning — just
+   buildings quietly missing from a portfolio count.
+
+   Caught before the backfill ran, by testing all eight EPA values through the
+   crosswalk: 3 of 8 returned null. Both spellings are now accepted, so one
+   stored value serves both consumers. Store the EPA form (authoritative, and
+   the API needs it verbatim); read it through the crosswalk for anything
+   DOE-based. Manufacturing, senior living, refrigerated warehouse and data
+   center remain deliberately absent from both — no prototype represents them,
+   so those buildings are excluded rather than mis-compared.
+
+0000000. WEATHER-NORMALIZED SAVINGS WERE OVERSTATED ~5x.  ** NEW IN 105 **
+
+   File: weather_normalization.js — normalizedAnnual()
+
+   It was one line:
+
+       return predict(model, normalHDD, normalCDD);
+
+   The regression is fit on BILLING PERIODS, so its intercept is the baseload
+   for ONE month. normalHDD and normalCDD are ANNUAL degree-day totals. That
+   line therefore added one month of baseload to a year of weather-driven
+   load and threw away the other eleven — which is most of the consumption
+   that does NOT change with weather.
+
+   It does not simply scale the answer down. Baseline and reporting
+   regressions divide load between intercept and slopes differently, so
+   dropping most of the intercept corrupts the two figures by different
+   amounts, and the savings percentage computed from them is meaningless.
+
+   Measured on a demo account with an 8% gain planted in it:
+
+       old form:   baseline  791,271   reporting  436,452   -> "44.8% saved"
+       corrected:  baseline 1,512,178  reporting 1,388,519  -> "8.2% saved"
+       actual metered 12-month sums:
+                            1,511,743             1,388,258
+
+   The corrected form lands within 0.03% of the real totals and recovers the
+   planted gain. Across four scenarios it now returns 5.5%, 7.4%, 8.2% and
+   8.3% — all inside the 6-13% band that was planted.
+
+   The fix annualizes by the number of billing periods, and that count is now
+   INFERRED from the bill dates (median period length, snapped to 12/6/4)
+   rather than assumed, so a bimonthly or quarterly commercial account
+   annualizes correctly too.
+
+   Nothing in the app consumed this function before today, so no previously
+   displayed number was wrong. That is also exactly why it survived: the
+   module was built, loaded, and never run.
+
+000000b. THE ANOMALY DETECTOR WAS FLAGGING WINTER.  ** NEW IN 105 **
+
+   File: bill_anomaly.js — detectAnomalies()
+
+   It computed a weather-adjusted prediction for every month and then never
+   used it. The z-score was taken on RAW consumption against a rolling window
+   of RAW consumption. In any building with a heating or cooling load,
+   January is legitimately far from the annual mean, so seasonality itself
+   scored as anomalous.
+
+   On four test meters, each with one excursion planted:
+       old: 2-5 false positives per meter, planted excursion MISSED in 3 of 4
+       new: 0 false positives, planted excursion FOUND in 4 of 4 (z 4.2-7.8)
+
+   Two changes:
+
+   · WHAT GETS SCORED. When a valid degree-day model exists, the detector now
+     scores the RESIDUAL (actual minus weather-predicted) — what is left once
+     weather is accounted for: equipment faults, schedule changes, occupancy
+     shifts, billing errors. With no model it falls back to raw consumption,
+     and every result carries a `basis` field saying which path produced it,
+     so a report can never imply a weather-adjusted finding it did not make.
+
+   · TWO GATES INSTEAD OF ONE. A flag now needs both:
+        |z| > 2.0   (was 1.5, which flags ~13% of all periods by chance —
+                     more than one month a year on a building where nothing
+                     happened; 2.0 is ~4.6%)
+        >= 10% off the weather-adjusted expectation
+
+     The second gate is the one that matters in practice. A z-score is
+     scale-free, so on a building with tight residuals a month that is 3% off
+     scores z=2.2 and gets reported. Statistically true, operationally
+     useless — nobody opens a work order over a 3% bill variance.
+
+     Neither number comes from a standard. IPMVP and ASHRAE G14 cover savings
+     determination, not exception-report tuning; 10% is the common utility
+     bill-audit convention. Both are overridable per call and both travel on
+     every result, so the tile states the screen it applied on its face.
+
+000000c. THE TWO M&V TILES NOW RUN.  ** NEW IN 105 **
+
+   Bill Anomaly Detection and Weather-Normalized M&V were registry entries
+   with no renderer, so they drew the "In development" shell. Both are now
+   wired to the production modules, per meter.
+
+   Bill Anomaly shows: meters screened, meters with a flag, counts above and
+   below weather-adjusted expectation, the largest single overage with its
+   store code, period and both absolute and percentage excess, and the screen
+   that produced the finding.
+
+   Weather-Normalized M&V fits the first 12 months as baseline and the second
+   12 as reporting, expresses both at that site's own NOAA normals, and shows
+   savings per fuel plus how many baselines meet ASHRAE G14. FUELS ARE NEVER
+   SUMMED — kWh and therms are reported in their own units on their own rows,
+   because there is no honest site-level conversion between them. Confidence
+   is driven by baseline fit quality, not by the size of the saving; a large
+   number off a bad baseline is not a better result.
+
+   M&V also declares its own data floor of 24 months rather than inheriting
+   the generic 6. Without that the shell contradicted itself, reading "needs
+   12 months / you have 12 months held" on a tile actually waiting for 24.
+
+000000d. SYNTHETIC BILLS FOR DEMO ACCOUNTS ONLY.  ** NEW IN 105 **
+
+   New file: demo_bills.js
+
+   Fabricated monthly bills, so the two tiles above have something to run on
+   before the Phase 2 bill parser exists. Your rule was that demo accounts
+   may hold fabricated data and every ingested account must be real and
+   factually calculated. This is how that line is held:
+
+   · generate() REFUSES unless opts.isDemo === true. Strictly ===, so 1,
+     "true" and a missing flag are all refused. A missing flag reads as REAL,
+     so forgetting to pass it fails safe rather than fabricating.
+   · isDemo comes from public.customers.is_demo, which is NOT NULL DEFAULT
+     false. A customer is real until somebody deliberately flags it.
+   · The database enforces the same rule independently:
+     beacon.reject_synthetic_on_real_client() refuses any row with
+     bill_source = 'synthetic' on a client not flagged demo, and fails closed
+     when is_demo is NULL. The client cannot render what the database would
+     refuse to store.
+   · Every single reading carries bill_source:'synthetic' and
+     is_synthetic:true. Provenance travels with the data, not alongside it.
+   · Every tile built from it is badged "Demo data" on its face and its
+     source line says the consumption values are fabricated and not quotable.
+
+   The DATA is fake. The PHYSICS is not:
+   · degree days are the real NOAA normals for each site's own state, so a
+     Minnesota warehouse gets Minnesota winters
+   · consumption is built as baseload + heating*HDD + cooling*CDD, the same
+     model weather_normalization.js fits, so the regression recovers a
+     relationship that is genuinely there rather than fitting noise
+   · the 24 months sum to exactly 2x the account's stated annual usage, so
+     the demo never contradicts the annual figure shown elsewhere on screen
+   · deterministic per store_code, so a demo is repeatable
+
+   Verified: 4 scenarios (OH office electric, MN warehouse, TX retail, OH
+   gas), all four baselines meeting ASHRAE G14 (R2 0.994-0.999, CV(RMSE)
+   1.5-2.1%), savings 5.5-8.3%, planted excursion found in all four, zero
+   false positives, and the weather-normalized annual reproducing the metered
+   totals to under 0.05%. Containment re-checked in the browser: with no demo
+   flag both tiles fall back to the awaiting-data shell, no demo badge appears
+   anywhere, and no number is invented.
+
+000000. THE UPLOAD WAS THROWING AWAY EIGHT COLUMNS.  ** NEW IN 104 **
+
+   The portfolio upload template has carried these since v1:
+
+     Property Type | Weekly Operating Hours | Number of Workers |
+     Number of Computers | Percent Heated | Percent Cooled |
+     Open On Weekends | Cooking Facilities
+
+   Nothing read any of them. The XLSX parser never looked at those cells and
+   the Supabase insert never mapped them — even though accounts.property_type
+   and accounts.operational_inputs both already existed as columns.
+
+   That single gap caused two separate failures already documented below:
+     · ENERGY STAR scoring could never run. property_type selects the EPA
+       property spec, so with it null the request could not be built. This is
+       why building_scores has 0 rows.
+     · The reference-building tile fell back to comparing every warehouse,
+       supermarket and clinic against a DOE office.
+
+   Now parsed and written. Handling of messy spreadsheets was tested:
+     · blank cells are OMITTED from operational_inputs, not stored as null —
+       a half-filled row must not assert "this building has zero workers"
+     · Yes/No/Y/N/TRUE/FALSE/1/0 and native Excel booleans all coerce
+     · non-numeric junk ("n/a", "~80") is dropped rather than stored as NaN
+     · property type is trimmed
+     · a row with nothing filled in yields null, not an empty object
+
+   Property type is stored AS ENTERED. The renderer owns the crosswalk from
+   business categories to DOE prototype names, so ingest does not guess.
+
+   NOTE: this fixes uploads from here on. The 423 accounts already in the
+   database still have property_type null and will keep relying on the
+   customer-level type until they are re-uploaded.
+
+00000. EVERY BUILDING WAS BEING BENCHMARKED AS AN OFFICE.  ** NEW IN 103 **
+
+   The renderer read a building's type like this:
+
+       function acctPropType(a) { return (a && a.property_type) || 'Office'; }
+
+   accounts.property_type is NULL on all 423 rows in the live database. So the
+   fallback fired every single time, and every warehouse, supermarket, clinic
+   and hotel in a portfolio was compared against the DOE OFFICE prototype.
+
+   That is not a small distortion. Same buildings, same usage, 47 kBtu/sqft:
+
+       vs Office      -27%   "Strong outperform"
+       vs Warehouse   +22%   "Investigate"
+
+   A 49-point swing, and the flattering one was being shown. The -24.7%
+   "STRONG OUTPERFORM" on the live site is that default, not a finding.
+
+   THE DATA WAS THERE ALL ALONG. Beacon holds property type per CUSTOMER
+   (customers.type, surfaced as btype) and it is populated for all 9 customers
+   — Warehouse, Supermarket, Healthcare, Manufacturing, Retail, Hospitality,
+   office. The tile never read it. It was never passed to the renderer.
+
+   Two vocabularies had to be reconciled first. customers.type holds business
+   categories; the DOE set holds prototype names. Only Supermarket and
+   Warehouse matched, and 'office' failed on CASE ALONE:
+
+       office        -> Office            Retail       -> Retail Store
+       Hospitality   -> Hotel             Healthcare   -> Medical Office
+       Supermarket   -> Supermarket       Warehouse    -> Warehouse
+
+   Healthcare maps to Medical Office, NOT Hospital. Mapping Beacon's
+   "healthcare" to Hospital is a known prior error that moved a BPS limit by
+   more than 4x.
+
+   Manufacturing deliberately has no mapping. DOE's Commercial Reference
+   Buildings are commercial prototypes; there is no industrial one, so a
+   manufacturing site genuinely cannot be benchmarked this way. Those
+   buildings are EXCLUDED and counted, never quietly compared to something
+   else. The tile shows an "Excluded · no property type" row when it happens.
+
+   VERIFIED against all 9 real customer types. Warehouse now reads +50.1%
+   "Investigate" where the office default said -10.3% "Below reference".
+
+   ⚠️ IF A CUSTOMER HAS NO USABLE TYPE, THIS TILE NOW GOES DARK rather than
+   showing a number. That is intended. It reads "Needs: a property type on
+   each building". Set the type in Admin → Property Type to light it up.
+
+0000. M&V STATISTICS WERE WRONG IN THREE WAYS.  ** NEW IN 102 **
+
+   weather_normalization.js is the module that decides whether a savings claim
+   is statistically defensible. It had three defects:
+
+     1. It advertised "ASHRAE Guideline 14: R2 > 0.75, CV(RMSE) < 20%".
+        The real G14 monthly criteria are CV(RMSE) <= 15% and |NMBE| <= 5%.
+     2. CV(RMSE) divided by n instead of (n - p). On 12 bills with 3 fitted
+        parameters that understated the error by a factor of sqrt(12/9) —
+        about 15%.
+     3. NMBE was not computed at all, so one of the two real criteria was
+        simply absent.
+
+   Also corrected: the R2 >= 0.75 threshold is NOT from Guideline 14. It comes
+   from the Bonneville Power Administration "Regression for M&V Reference
+   Guide" section 5.1.1, and is now attributed there.
+
+   The usual G14 clause numbers are marked [UNVERIFIED] in the source — the
+   standard is paywalled, the threshold VALUES are corroborated independently,
+   the clause references are not. Nothing prints a clause number to a client.
+
+   ADDED: leave-one-out CV(RMSE). This matters more than it sounds. In-sample
+   NMBE is ~0 BY CONSTRUCTION for any least-squares fit with an intercept —
+   measured at 1e-14 or smaller across every test case — so on the baseline
+   period it passes every time and validates nothing. It is kept because it is
+   a required reporting statistic and becomes meaningful in the reporting
+   period, but loo_cv_rmse is now the honest out-of-sample number. It is
+   computed from the closed-form hat-matrix leverage, so it costs one extra
+   pass rather than refitting the model n times.
+
+   VERIFIED against an independent numpy implementation on an identical
+   24-month fixture: intercept, both slopes, R2, CV(RMSE), NMBE and
+   leave-one-out CV(RMSE) all agree to roughly 14 significant figures.
+
+   ⚠️ BEHAVIOUR CHANGE. The threshold drop and the (n - p) correction compound.
+   A 12-month fit whose corrected CV(RMSE) lands between 15% and about 17.3%
+   flips from PASS to FAIL. ANY SAVINGS CLAIM PREVIOUSLY REPORTED AS MEETING
+   GUIDELINE 14 MUST BE RE-RUN BEFORE IT IS QUOTED AGAIN.
+
+   fitModel() now also returns a `criteria` object with the value, threshold,
+   pass flag and source for each of the three tests, so a report can say which
+   test failed rather than only that the fit was rejected.
+
+000. TIER GATING NOW EXISTS.  ** NEW IN 101 **
+
+   Before this there was effectively none. beacon_pro_renderer.js accepted an
+   `options` argument and never read it. The only gate in the whole app was
+   one line in index.html deciding whether to call the renderer at all — so
+   Free saw a blank Intelligence tab with no hint anything existed, and Pro
+   and Intelligence were byte-for-byte identical.
+
+   Every tile now declares the plan that includes it and the data granularity
+   it needs, resolving to one of three states:
+
+     ACTIVE    plan is sufficient AND the data exists -> real numbers
+     LOCKED    plan is too low                        -> shell + which plan
+     AWAITING  plan is fine, data is not there yet    -> shell + what to upload
+
+   LOCKED and AWAITING are deliberately different messages. "You need Beacon
+   Pro" and "you need to upload 12 months of bills" are not the same thing,
+   and collapsing them would either oversell the plan or make the product
+   look broken.
+
+   NO FABRICATED NUMBERS anywhere. A gated tile never shows a blurred or
+   placeholder figure. It shows its real label, what it actually measures,
+   its real requirement and its real source. Only the value is withheld,
+   because the value genuinely is not known.
+
+   EIGHT TILES IN THREE THEME GROUPS:
+     Physics-Based Benchmarks   Reference Building · Carbon · Grid Services
+     Measurement & Verification Bill Anomaly · Weather-Normalized M&V
+     Interval Intelligence      Hourly Emissions · Tariff Opt · Real-Time DR
+
+   WHAT EACH PLAN SEES (verified in headless Chromium at every combination):
+     Free          all 8 locked
+     Pro           3 active, 2 awaiting bills, 3 locked to Intelligence
+     Intelligence  3 active, 5 awaiting data
+
+   A "Preview tier" switcher sits above the panels so you can flip
+   Free / Pro / Intelligence live in a demo. It follows the app's existing
+   pattern for the View-as toggle — set a URL param and reload — rather than
+   adding a second source of truth for state.
+
+   CLIENT VIEW IS DIFFERENT ON PURPOSE. In ?view=client the switcher is
+   hidden AND locked tiles are removed entirely. Showing an end client tiles
+   they cannot have would be subscription upsell copy inside the product,
+   which Beacon does not do. A client sees what is active for them plus what
+   their own data would unlock — never a price ladder.
+
+   ALSO SETTLED HERE: the VPP / Grid Services tile now carries an amber
+   "Directional — not a quote" verdict instead of a lime one, an explicit
+   "To firm up: interval data" row, and a source line saying it is estimated
+   from monthly load factors rather than metered demand. That closes the
+   open question from Sep 12 in the conservative direction.
+
+00. THE CARBON TILE WAS RUNNING ON INVENTED NUMBERS.  ** NEW IN 100 **
+
+   emissions_factors.js carried a 27-subregion eGRID table that was not EPA
+   data. Proof it was never transcribed from EPA: it contained duplicate
+   values that real eGRID data cannot have — AKGD and SRSO both 998.5, MROE
+   and SRMW both 1385.5. Its header also said "non-baseload emission rate
+   shown", which is the WRONG SERIES for Scope 2 regardless: the GHG Protocol
+   requires TOTAL OUTPUT rates for location-based accounting, and EPA's own
+   eGRID Technical Guide says non-baseload "should not be used for ...
+   carbon-footprinting."
+
+   Replaced with EPA eGRID2023 Summary Tables Rev 2 (released 2025-06-12),
+   Table 1 "Subregion Output Emission Rates" — total output, AR5 100-year
+   GWPs, all 27 subregions.
+
+   THREE INDEPENDENT VALIDATIONS BEFORE COMMITTING:
+     1. Cross-checked against a second publication of eGRID2023 Rev 2.
+        26 of 27 CO2e values identical; HIOA differed by 0.1 from rounding
+        and EPA's 1498.9 was kept.
+     2. Every row reconstructs internally: co2 + ch4*28 + n2o*265 == co2e to
+        within 0.127 lb/MWh across all 27. AR4 GWPs fit measurably worse,
+        confirming AR5 is the correct set.
+     3. No duplicate CO2e values anywhere — the test the old table failed.
+
+   ── WHAT THIS DOES TO YOUR NUMBER ──────────────────────────────────────
+   Computed by running BOTH modules against the real portfolio (423 accounts
+   joined to locations for state, electric only, pulled from production):
+
+       old (fabricated)      296,307 tCO2e
+       new (EPA eGRID2023)   264,327 tCO2e
+       change                   -10.8%
+
+   SCOPE 2 GOES DOWN, NOT UP. Earlier notes in this project claimed the old
+   table understated Scope 2 by about 25%. That was wrong, and it is
+   corrected here. Non-baseload rates run HIGHER than total-output rates, so
+   a table aimed at the wrong (higher) series overstated the result. The
+   biggest movers are your two largest states:
+
+       OH  RFCW  1145.5 -> 916.1 lb/MWh    36,582 -> 29,256 tCO2e
+       MI  RFCM  1195.2 -> 976.0 lb/MWh    36,201 -> 29,561 tCO2e
+       CO  RMPA  1298.5 -> 1042.5 lb/MWh   11,273 ->  9,050 tCO2e
+       TX  ERCT   785.2 -> 736.6 lb/MWh    35,863 -> 33,643 tCO2e
+
+   Anything you have already shown a client using the old Carbon figure is
+   overstated by roughly a tenth and should be reissued from this build.
+
+0. ASK GRIDIENT WAS INVISIBLE IN BOTH BROKER AND CLIENT MODE.  ** NEW IN 99 **
+   The pill was rendering correctly the whole time — it was buried.
+
+     #ag-pill    bottom 24px, right 24px, 164x42, z-index 899
+     .lp-toggle  bottom 18px, right 18px, 208x41, z-index 10000
+
+   Nearly the same rectangle, and the "VIEW AS Broker/Client" toggle won on
+   z-index by a factor of eleven. document.elementFromPoint() at the centre of
+   the pill returned .lp-toggle-btn, so every click in that corner hit the
+   toggle and Ask Gridient could never be opened.
+
+   This was introduced by beacon_index_92, whose release note reads "the View
+   as toggle now STAYS VISIBLE in client view ... no more getting trapped."
+   Making that toggle permanent parked it on top of the pill in both modes.
+
+   Fix: the pill moves to bottom:72px right:18px, clearing the toggle by 13px
+   and lining up their right edges so the two read as a deliberate stack.
+
+   VERIFIED at 1600x900, 1280x720 and 1440x1080: 13px gap at every size, the
+   pill is the topmost element at its own centre, and clicking it opens the
+   drawer.
+
+1. THE LIGHT-THEME BEACON PRO PANELS ARE GONE.
+   The live site was serving the pre-correction Beacon Pro: a separate
+   stylesheet, white/#f4f8ec backgrounds on a dark product, the wrong green
+   (#7DA512 instead of --lime #add540), and "BEACON PRO" marketing badges
+   inside the product.
+
+   - beacon_pro.css .............. DELETED (30 files now, was 31)
+   - beacon_pro_renderer.js ...... replaced with the native .icard version
+   - index.html .................. the <link rel="stylesheet"> removed
+
+   The Pro tiles now render as native .icard tiles inside the Intelligence
+   section, matching the rest of Beacon. No separate stylesheet.
+
+2. ASK GRIDIENT WAS NEVER SENDING YOUR LOGIN. (the real one)
+   The Ask Gridient drawer lives in its own top-level <script> IIFE, and it
+   called a bare `sb` that is var-scoped to a DIFFERENT block. That threw a
+   ReferenceError straight into an empty catch, so:
+     - the Authorization header was never sent
+     - every request hit the edge function anonymous
+     - rate limiting keyed on IP address instead of on the user
+     - the avatar always read "ME" instead of your initials
+
+   Now resolved through window._beaconSb (exported at index.html:3371 for
+   exactly this purpose), with a null check because it is legitimately null
+   when nobody is signed in. Both call sites fixed — the send path and the
+   avatar path — and both silent catches now log instead of swallowing.
+
+   VERIFIED, not assumed: driven in headless Chromium with a signed-in client
+   present. This bundle sends "Authorization: Bearer <token>". The currently
+   live bundle, same test, sends no header at all.
+
+3. ERROR MESSAGES NO LONGER READ "[object Object]".
+   The drawer did `throw new Error(json.error)`, which renders as
+   "[object Object]" whenever the server returns a structured error. It now
+   unwraps an object error to its .message before throwing.
+
+══════════════════════════════════════════════════════════════════════════════
+PAIRS WITH A SERVER CHANGE ALREADY DEPLOYED
+══════════════════════════════════════════════════════════════════════════════
+The ask-gridient edge function was updated to v18 on 2026-09-16, independently
+of this bundle. It had NO authentication of any kind — anyone with the URL
+could spend the Anthropic credits. It now enforces an origin allow-list, an
+hourly rate limit (20/hr per IP anonymous, 100/hr per signed-in user), and
+input size caps, and it returns real HTTP status codes instead of 200 on
+every failure.
+
+Once this bundle is live, signed-in users automatically get the 100/hr limit
+instead of sharing the anonymous per-IP bucket, because the token finally
+reaches the function.
+
+══════════════════════════════════════════════════════════════════════════════
+STILL KNOWN-WRONG IN THIS BUILD (not fixed here, on the list)
+══════════════════════════════════════════════════════════════════════════════
+  - Scope 2 is now location-based only. No market-based method (RECs / PPAs)
+    is modelled, so a client who procures renewable power will see a number
+    higher than their real market-based Scope 2.
+  - AK and HI span two eGRID subregions each and still have no override path;
+    the state map picks one. Same limitation the NY fix addressed for NY.
+  - Bill Anomaly and Weather-Normalized M&V are now WIRED (see 000000c), but
+    on real accounts they still render as AWAITING until Phase 2's bill-parser
+    supplies monthly data. Only demo accounts have a history today, and it is
+    synthetic and badged as such.
+  - The 423 accounts already in the database still have property_type null.
+    Beacon's upload now reads the column (104) but SWITCHBOARD NEVER ASKS FOR
+    IT — zero references in the intake, against 2 for annual_usage and 14 for
+    sqft. Until that intake collects it, and the existing 423 rows are
+    backfilled, ENERGY STAR scoring cannot run and building_scores stays at
+    0 rows. Must use exactly the 8 EPA Target Finder values on the column
+    comment.
+  - No market-based Scope 2, and no utility PRICE anywhere in the analytics.
+    Savings are reported in kWh and therms only, never dollars. See the
+    discussion list below.
+
+══════════════════════════════════════════════════════════════════════════════
+SERVER-SIDE WORK ALREADY APPLIED (nothing to deploy for these)
+══════════════════════════════════════════════════════════════════════════════
+These landed in Supabase directly and are live NOW, independent of this
+bundle. Listed so you know the front end is meeting a database that has
+already moved.
+
+  1. PHASE 2 SCHEMA IS APPLIED. The `beacon` schema exists with all nine
+     tables, RLS on every one, 9 of 9 functions with a pinned search_path,
+     zero grants to anon, and the synthetic-containment trigger live. 32 of 32
+     verification checks pass. Every live public table was fingerprinted
+     before and after (RLS state, policy count, column count) and all eight
+     are byte-identical. public.locations still has its 311 rows.
+
+     ONE MANUAL STEP REMAINS AND ONLY YOU CAN DO IT:
+       Supabase dashboard -> Settings -> API -> Exposed schemas
+       add `beacon` to the list.
+     SQL cannot do this. Until it is done, sb.schema('beacon') fails with
+     PGRST106 no matter what the schema looks like.
+
+  2. A CROSS-TENANT LEAK WAS FOUND AND CLOSED BEFORE IT SHIPPED.
+     beacon.reading_provenance is a view. A Postgres view runs with its
+     OWNER's rights by default, reading straight through RLS. Combined with
+     the migration's own ALTER DEFAULT PRIVILEGES (which grants
+     `authenticated` on TABLES, and a view counts as a table), that view
+     handed every signed-in user a summary of EVERY partner's every client:
+     names, demo flags, reading counts, date ranges. Proven on a throwaway
+     database: a user belonging to no partner saw 0 rows in every base table
+     and 2 rows through the view. Now created security_invoker = true with
+     SELECT-only grants. Supabase's own linter reports no finding against the
+     beacon schema.
+
+  3. accounts.property_type IS BACKFILLED — 418 of 423 rows, and
+     annual_usage WAS RE-SEEDED so each building's EUI is plausible for its
+     type. Both are FABRICATED demo values and both now carry a provenance
+     column (property_type_source / annual_usage_source), guarded by
+     trg_reject_demo_seeded which refuses either on a non-demo customer and
+     fails closed. Portfolio totals moved: 896.1 GWh and 4.37M therms,
+     Scope 1+2 330,223 tCO2e against the 264,327 previously quoted.
+     Five are left null on purpose: Brazos Manufacturing, Pinecrest Senior
+     Living and Travis County Cold Storage have no EPA or DOE category, so
+     they demonstrate the honest not-scorable path instead of being given an
+     invented one.
+
+     NEW COLUMN accounts.property_type_source records where each value came
+     from: upload / switchboard / epa_verified / demo_seed. All 418 are
+     'demo_seed' — FABRICATED, because all nine customers are is_demo.
+     A new trigger, trg_reject_demo_property_type, refuses a 'demo_seed'
+     value on any account whose customer is not flagged demo, and fails
+     closed on a null or unresolvable customer. Same rule and same shape as
+     the beacon containment trigger. Proven against production inside a
+     self-rolling-back transaction: demo_seed onto a real account REJECTED,
+     'upload' onto the same account ACCEPTED, unknown customer REJECTED,
+     invalid source value REJECTED.
+
+══════════════════════════════════════════════════════════════════════════════
+ON THE LIST TO TALK ABOUT (not built, not decided)
+══════════════════════════════════════════════════════════════════════════════
+  1. UTILITY PRICE, FOR COMPARISON AND FOR DOLLARS.  [added 2026-09-17]
+     Right now every analytic output is in physical units. The M&V tile says
+     "278,464 kWh saved", not "$X saved", and there is no rate comparison
+     anywhere. Two related but separate questions:
+       a) can we price a portfolio's savings and overages in dollars
+       b) can we compare what a client PAYS against what they could pay
+     Beacon already ships openei.js (NREL Utility Rate Database) and
+     market_intelligence.js, and there is a commodity-fetcher edge function
+     with 638,177 rows of price history behind it. So some of the pieces are
+     in hand. Worth a proper look at what each source can and cannot
+     legitimately support before anything gets wired — a blended average rate
+     applied to a demand-driven bill is the kind of number that looks
+     authoritative and is wrong.
+
+  2. THE DEMO PORTFOLIO'S USAGE DOES NOT MATCH ITS BUILDING TYPES.
+     [needs your decision]
+
+     Giving the demo accounts real property types exposed this. The demo
+     usage figures were generated with no regard to building type, so every
+     type sits in the same narrow 36-47 kBtu/sqft band:
+
+       type                          accounts   demo EUI   DOE ref   verdict
+       Office                             245       38.5      50.4    -23.7%
+       Warehouse (Non-Refrigerated)        79       42.7      25.5    +67.5%
+       Retail Store                        50       38.6      82.1    -53.0%
+       Medical Office                      28       35.8     178.5    -80.0%
+       K-12 School                         12       42.4      61.8    -31.4%
+       Supermarket/Grocery Store            2       44.6     232.5    -80.8%
+       Hotel                                2       46.1      74.5    -38.2%
+
+     Only Office is credible. A real supermarket runs about 230 kBtu/sqft and
+     a real warehouse about 25, so the demo currently shows a supermarket
+     outperforming its class by 81% and a warehouse overrunning by 68%. The
+     tile arithmetic is exact — it reproduces to the decimal — the INPUTS are
+     implausible.
+
+     This is also why the old "-24.7% STRONG OUTPERFORM" looked believable
+     before 103: the demo band happens to sit near office EUI, so defaulting
+     everything to Office hid incoherent demo data behind a plausible number.
+
+     Two ways out, and it is your call because one of them changes numbers
+     you have already shared:
+       a) Re-seed the demo accounts' annual_usage so each building's EUI is
+          realistic for its type. The demo then holds up to an expert
+          audience. Cost: the portfolio's headline usage and carbon totals
+          change, so Beacon_Capabilities_for_Reports_Engine.docx needs a
+          revision. Vandelay is 62% Office and already close, so the shift is
+          smaller than it sounds.
+       b) Leave it. Nothing breaks, but the Reference Building tile shows
+          verdicts an energy professional will not believe.
+     I would do (a) — the tile's whole value is the verdict, and a verdict
+     nobody believes is worth less than no verdict.
+
+  3. SWITCHBOARD PROPERTY-TYPE INTAKE. The gap above. Beacon can read the
+     column now; nothing upstream collects it.
+
+══════════════════════════════════════════════════════════════════════════════
+HOW TO USE
+══════════════════════════════════════════════════════════════════════════════
+This bundle is COMPLETE — all 31 files, including rebates_data.js and
+rebates_database.json. Nothing to add before deploying.
+
+NEW FILE IN 105: demo_bills.js. index.html loads it, so it must go up too.
+
+TEST LOCALLY (free):
+  1. Double-click  serve-local.command
+  2. Browser opens at http://localhost:8000
+  3. Close the Terminal window when done.
+  (localhost is on the edge function's origin allow-list, so Ask Gridient
+   works locally too.)
+
+DEPLOY TO NETLIFY:
+  1. Drag THIS ENTIRE FOLDER onto the Netlify deploy area for the Beacon site.
+  2. Wait for the green "Published".
+  3. Hard-refresh beacon.gridientsuite.com (Cmd+Shift+R).
+
+══════════════════════════════════════════════════════════════════════════════
+WHAT TO CHECK AFTER DEPLOYING
+══════════════════════════════════════════════════════════════════════════════
+  0000000. Open a MASSACHUSETTS client (Riverside Medical, Hartwell Grocery)
+     and a TEXAS one (Lone Star Logistics). Spend on the MA client should be
+     roughly DOUBLE what it was; the TX client should drop about a quarter.
+     Both are correct — that is the flat 12c/kWh being replaced by the real
+     EIA rate for each state. Check the spend figure agrees across panels;
+     before this build it did not.
+  000000. Intelligence tab -> Reference Building Comparison on a customer that
+     has BOTH electric and gas meters. Portfolio EUI should be materially
+     HIGHER than you remember, and some verdicts will flip from outperform to
+     investigate. That is the gas fix landing, not a regression. The row
+     "Buildings compared" now reads "N of M" — if N is less than M the reasons
+     are listed underneath.
+  00000. Intelligence tab -> Reference Building Comparison, on a customer with
+     warehouse, supermarket or medical-office sites. The tile must COUNT those
+     buildings. If its meter/building count is lower than the portfolio's, the
+     EPA-spelling crosswalk keys did not load — hard-refresh.
+  0000. Intelligence tab, Measurement & Verification group → on a DEMO
+     customer, Bill Anomaly Detection and Weather-Normalized M&V should both
+     show live numbers with an amber "Demo data" row. M&V should read a
+     single-digit percentage. If it reads 40-50%, the old normalizedAnnual is
+     still in the browser cache — hard-refresh.
+  0000b. Same two tiles on a NON-demo customer → both must fall back to the
+     amber "Awaiting data" shell with no numbers and NO "Demo data" row. If a
+     real customer ever shows synthetic figures, stop and tell me.
+  000. Intelligence tab → flip the Preview tier control through Free, Pro and
+     Intelligence. The tiles should change state each time. Then switch to
+     Client view and confirm the switcher and all locked tiles disappear.
+  0. Intelligence tab → Carbon Emissions should read about 10% LOWER than
+     before. That is the eGRID correction landing, not a bug.
+  1. Intelligence tab → the Beacon Pro tiles should be DARK, using the same
+     card style as the benchmarks beside them. No white panels, no green
+     header strip, no "BEACON PRO" badge.
+  2. Open Ask Gridient while signed in → the avatar should show your initials,
+     not "ME". That is the visible proof the token is now being sent.
+  3. Ask it something ("what does a bullish storage signal mean") → it should
+     answer normally.

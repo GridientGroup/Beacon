@@ -1,0 +1,1699 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Beacon · Portfolio Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#06101F" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.6/babel.min.js"></script>
+
+  <style>
+    html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #06101F; color: #EAF1FA; font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* ---- ANIMATIONS ---- */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #1F3454; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2C476F; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    .boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: #06101F; z-index: 9999; transition: opacity 400ms ease; font-family: 'IBM Plex Mono', monospace; }
+    .boot.gone { opacity: 0; pointer-events: none; }
+    .boot .ring { width: 32px; height: 32px; border: 2px solid #1F3454; border-top-color: #FF6B35; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .boot .label { color: #5A708F; font-size: 11px; letter-spacing: 4px; }
+  </style>
+</head>
+<body>
+  <div class="boot" id="boot">
+    <div class="ring"></div>
+    <div class="label">INITIALIZING PORTFOLIO MAP…</div>
+  </div>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    /* ============================================================
+       STS BRAND COLORS — edit here to match exact brand spec
+       ============================================================ */
+    const BRAND = {
+      navy:   '#0A1F3D',
+      orange: '#FF6B35',
+      gold:   '#FFD93D',
+    };
+
+    const C = {
+      bg:           '#06101F',
+      panelSolid:   '#0E1E36',
+      panelStrong:  '#13284A',
+      border:       '#1C3559',
+      borderSoft:   'rgba(43, 76, 122, 0.45)',
+      land:         '#152844',
+      landStroke:   '#3A5A8A',
+      text:         '#EAF1FA',
+      textMuted:    '#8CA0BD',
+      textDim:      '#5A708F',
+      accent:       BRAND.orange,
+      accentSoft:   'rgba(255,107,53,0.16)',
+
+      // Brighter, more luminous pin colors
+      employee:     '#00D4FF',   // electric cyan
+      partner:      BRAND.gold,  // vivid yellow-gold
+      contractor:   BRAND.orange,// signal orange
+    };
+
+    /* ---- inline icons ---- */
+    const Icon = ({ children, size = 16, strokeWidth = 2, style = {}, className = '', ...rest }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth={strokeWidth}
+        strokeLinecap="round" strokeLinejoin="round"
+        className={className} style={style} {...rest}>
+        {children}
+      </svg>
+    );
+    const IcUsers = (p) => (<Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>);
+    const IcHandshake = (p) => (<Icon {...p}><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></Icon>);
+    const IcWrench = (p) => (<Icon {...p}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></Icon>);
+    const IcPlus = (p) => (<Icon {...p}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>);
+    const IcTrash = (p) => (<Icon {...p}><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>);
+    const IcSearch = (p) => (<Icon {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>);
+    const IcMapPin = (p) => (<Icon {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Icon>);
+    const IcRadio = (p) => (<Icon {...p}><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></Icon>);
+    const IcX = (p) => (<Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>);
+    const IcEdit = (p) => (<Icon {...p}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></Icon>);
+    const IcCheck = (p) => (<Icon {...p}><path d="M20 6 9 17l-5-5"/></Icon>);
+    const IcBuilding = (p) => (<Icon {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></Icon>);
+
+    // BEACON: pin categories repurposed as fuel-type groupings.
+    //   employee  → Electric-only locations (cyan)
+    //   partner   → Gas-only locations (gold)
+    //   contractor → Dual-fuel locations (coral)
+    // Keys preserved so the existing map / popup / cluster code works unchanged.
+    const TYPE_META = {
+      employee:   { color: C.employee,   label: 'Electric',  Icon: IcUsers,     plural: 'Electric' },
+      partner:    { color: C.partner,    label: 'Gas',       Icon: IcHandshake, plural: 'Gas' },
+      contractor: { color: C.contractor, label: 'Dual-fuel', Icon: IcWrench,    plural: 'Dual-fuel' },
+    };
+
+    /* ============================================================
+       TopoJSON → GeoJSON (minimal inline decoder)
+       ============================================================ */
+    function topoToGeo(topo, objectName) {
+      const obj = topo.objects[objectName];
+      if (!obj) return null;
+      const t = topo.transform || { scale: [1, 1], translate: [0, 0] };
+      const arcs = topo.arcs.map(arc => {
+        let x = 0, y = 0;
+        return arc.map(([dx, dy]) => {
+          x += dx; y += dy;
+          return [x * t.scale[0] + t.translate[0], y * t.scale[1] + t.translate[1]];
+        });
+      });
+      const arcCoords = (idx) => idx < 0 ? arcs[~idx].slice().reverse() : arcs[idx];
+      const ring = (indices) => {
+        const out = [];
+        for (let i = 0; i < indices.length; i++) {
+          let pts = arcCoords(indices[i]);
+          if (i > 0) pts = pts.slice(1);
+          for (const p of pts) out.push(p);
+        }
+        return out;
+      };
+      const coords = (g) => {
+        if (g.type === 'Polygon') return g.arcs.map(ring);
+        if (g.type === 'MultiPolygon') return g.arcs.map(p => p.map(ring));
+        return null;
+      };
+      return {
+        type: 'FeatureCollection',
+        features: obj.geometries.map(g => ({
+          type: 'Feature',
+          id: g.id,
+          properties: g.properties || {},
+          geometry: { type: g.type, coordinates: coords(g) },
+        })),
+      };
+    }
+
+    /* ============================================================
+       CITY DB
+       ============================================================ */
+    const CITIES = [
+      ['New York','NY',40.7128,-74.006],['Los Angeles','CA',34.0522,-118.2437],
+      ['Chicago','IL',41.8781,-87.6298],['Houston','TX',29.7604,-95.3698],
+      ['Phoenix','AZ',33.4484,-112.074],['Philadelphia','PA',39.9526,-75.1652],
+      ['San Antonio','TX',29.4241,-98.4936],['San Diego','CA',32.7157,-117.1611],
+      ['Dallas','TX',32.7767,-96.797],['Austin','TX',30.2672,-97.7431],
+      ['Jacksonville','FL',30.3322,-81.6557],['Fort Worth','TX',32.7555,-97.3308],
+      ['Columbus','OH',39.9612,-82.9988],['Indianapolis','IN',39.7684,-86.1581],
+      ['Charlotte','NC',35.2271,-80.8431],['San Francisco','CA',37.7749,-122.4194],
+      ['Seattle','WA',47.6062,-122.3321],['Denver','CO',39.7392,-104.9903],
+      ['Washington','DC',38.9072,-77.0369],['Boston','MA',42.3601,-71.0589],
+      ['Nashville','TN',36.1627,-86.7816],['El Paso','TX',31.7619,-106.485],
+      ['Detroit','MI',42.3314,-83.0458],['Memphis','TN',35.1495,-90.049],
+      ['Portland','OR',45.5152,-122.6784],['Oklahoma City','OK',35.4676,-97.5164],
+      ['Las Vegas','NV',36.1699,-115.1398],['Louisville','KY',38.2527,-85.7585],
+      ['Baltimore','MD',39.2904,-76.6122],['Milwaukee','WI',43.0389,-87.9065],
+      ['Albuquerque','NM',35.0844,-106.6504],['Tucson','AZ',32.2226,-110.9747],
+      ['Fresno','CA',36.7378,-119.7871],['Sacramento','CA',38.5816,-121.4944],
+      ['Mesa','AZ',33.4152,-111.8315],['Atlanta','GA',33.749,-84.388],
+      ['Kansas City','MO',39.0997,-94.5786],['Colorado Springs','CO',38.8339,-104.8214],
+      ['Miami','FL',25.7617,-80.1918],['Raleigh','NC',35.7796,-78.6382],
+      ['Omaha','NE',41.2565,-95.9345],['Long Beach','CA',33.7701,-118.1937],
+      ['Virginia Beach','VA',36.8529,-75.978],['Oakland','CA',37.8044,-122.2712],
+      ['Minneapolis','MN',44.9778,-93.265],['Tulsa','OK',36.154,-95.9928],
+      ['Arlington','TX',32.7357,-97.1081],['Tampa','FL',27.9506,-82.4572],
+      ['New Orleans','LA',29.9511,-90.0715],['Wichita','KS',37.6872,-97.3301],
+      ['Cleveland','OH',41.4993,-81.6944],['Bakersfield','CA',35.3733,-119.0187],
+      ['Aurora','CO',39.7294,-104.8319],['Anaheim','CA',33.8366,-117.9143],
+      ['Honolulu','HI',21.3099,-157.8581],['Santa Ana','CA',33.7455,-117.8677],
+      ['Riverside','CA',33.9533,-117.3962],['Corpus Christi','TX',27.8006,-97.3964],
+      ['Lexington','KY',38.0406,-84.5037],['Stockton','CA',37.9577,-121.2908],
+      ['Henderson','NV',36.0395,-114.9817],['Saint Paul','MN',44.9537,-93.09],
+      ['Saint Louis','MO',38.627,-90.1994],['Cincinnati','OH',39.1031,-84.512],
+      ['Pittsburgh','PA',40.4406,-79.9959],['Greensboro','NC',36.0726,-79.792],
+      ['Anchorage','AK',61.2181,-149.9003],['Plano','TX',33.0198,-96.6989],
+      ['Lincoln','NE',40.8136,-96.7026],['Orlando','FL',28.5383,-81.3792],
+      ['Irvine','CA',33.6846,-117.8265],['Newark','NJ',40.7357,-74.1724],
+      ['Durham','NC',35.994,-78.8986],['Chula Vista','CA',32.6401,-117.0842],
+      ['Fort Wayne','IN',41.0793,-85.1394],['Jersey City','NJ',40.7178,-74.0431],
+      ['St. Petersburg','FL',27.7676,-82.6403],['Laredo','TX',27.5036,-99.5076],
+      ['Madison','WI',43.0731,-89.4012],['Chandler','AZ',33.3062,-111.8413],
+      ['Buffalo','NY',42.8864,-78.8784],['Lubbock','TX',33.5779,-101.8552],
+      ['Scottsdale','AZ',33.4942,-111.9261],['Reno','NV',39.5296,-119.8138],
+      ['Glendale','AZ',33.5387,-112.186],['Gilbert','AZ',33.3528,-111.789],
+      ['Winston-Salem','NC',36.0999,-80.2442],['Norfolk','VA',36.8508,-76.2859],
+      ['Garland','TX',32.9126,-96.6389],['Irving','TX',32.814,-96.9489],
+      ['Hialeah','FL',25.8576,-80.2781],['Fremont','CA',37.5485,-121.9886],
+      ['Boise','ID',43.615,-116.2023],['Richmond','VA',37.5407,-77.436],
+      ['Baton Rouge','LA',30.4515,-91.1871],['Spokane','WA',47.6588,-117.426],
+      ['Des Moines','IA',41.5868,-93.625],['Tacoma','WA',47.2529,-122.4443],
+      ['San Bernardino','CA',34.1083,-117.2898],['Modesto','CA',37.6391,-120.9969],
+      ['Birmingham','AL',33.5186,-86.8104],['Salt Lake City','UT',40.7608,-111.891],
+      ['Grand Rapids','MI',42.9634,-85.6681],['Yonkers','NY',40.9312,-73.8987],
+      ['Montgomery','AL',32.3668,-86.3],['Columbus','GA',32.4609,-84.9877],
+      ['Augusta','GA',33.4735,-82.0105],['Akron','OH',41.0814,-81.519],
+      ['Little Rock','AR',34.7465,-92.2896],['Huntsville','AL',34.7304,-86.5861],
+      ['Tallahassee','FL',30.4383,-84.2807],['Mobile','AL',30.6954,-88.0399],
+      ['Knoxville','TN',35.9606,-83.9207],['Worcester','MA',42.2626,-71.8023],
+      ['Fort Lauderdale','FL',26.1224,-80.1373],['Chattanooga','TN',35.0456,-85.3097],
+      ['Providence','RI',41.824,-71.4128],['Salem','OR',44.9429,-123.0351],
+      ['Springfield','MO',37.2089,-93.2923],['Springfield','IL',39.7817,-89.6501],
+      ['Springfield','MA',42.1015,-72.5898],['Jackson','MS',32.2988,-90.1848],
+      ['Eugene','OR',44.0521,-123.0868],['Cary','NC',35.7915,-78.7811],
+      ['Fort Collins','CO',40.5853,-105.0844],['Charleston','SC',32.7765,-79.9311],
+      ['Charleston','WV',38.3498,-81.6326],['Cape Coral','FL',26.5629,-81.9495],
+      ['Fayetteville','NC',35.0527,-78.8784],['Savannah','GA',32.0809,-81.0912],
+      ['Hartford','CT',41.7637,-72.6851],['New Haven','CT',41.3083,-72.9279],
+      ['Stamford','CT',41.0534,-73.5387],['Bridgeport','CT',41.1865,-73.1952],
+      ['Syracuse','NY',43.0481,-76.1474],['Rochester','NY',43.1566,-77.6088],
+      ['Albany','NY',42.6526,-73.7562],['Topeka','KS',39.0473,-95.6752],
+      ['Sioux Falls','SD',43.5446,-96.7311],['Fargo','ND',46.8772,-96.7898],
+      ['Bismarck','ND',46.8083,-100.7837],['Cheyenne','WY',41.14,-104.8202],
+      ['Casper','WY',42.8501,-106.3252],['Helena','MT',46.5891,-112.0391],
+      ['Billings','MT',45.7833,-108.5007],['Missoula','MT',46.8721,-113.994],
+      ['Boulder','CO',40.015,-105.2705],['Provo','UT',40.2338,-111.6585],
+      ['Ogden','UT',41.223,-111.9738],['Las Cruces','NM',32.3199,-106.7637],
+      ['Santa Fe','NM',35.687,-105.9378],['Pierre','SD',44.3683,-100.351],
+      ['Rapid City','SD',44.0805,-103.231],['Lansing','MI',42.7325,-84.5555],
+      ['Ann Arbor','MI',42.2808,-83.743],['Flint','MI',43.0125,-83.6875],
+      ['Toledo','OH',41.6528,-83.5379],['Dayton','OH',39.7589,-84.1916],
+      ['Evansville','IN',37.9716,-87.5711],['South Bend','IN',41.6764,-86.252],
+      ['Bloomington','IN',39.1653,-86.5264],['Peoria','IL',40.6936,-89.589],
+      ['Rockford','IL',42.2711,-89.094],['Champaign','IL',40.1164,-88.2434],
+      ['Naperville','IL',41.7508,-88.1535],['Joliet','IL',41.525,-88.0817],
+      ['Cedar Rapids','IA',41.9779,-91.6656],['Davenport','IA',41.5236,-90.5776],
+      ['Iowa City','IA',41.6611,-91.5302],['Lawrence','KS',38.9717,-95.2353],
+      ['Manhattan','KS',39.1836,-96.5717],['Gainesville','FL',29.6516,-82.3248],
+      ['Pensacola','FL',30.4213,-87.2169],['Sarasota','FL',27.3364,-82.5307],
+      ['West Palm Beach','FL',26.7153,-80.0534],['Naples','FL',26.1421,-81.7948],
+      ['Daytona Beach','FL',29.2108,-81.0228],['Lakeland','FL',28.0395,-81.9498],
+      ['Pueblo','CO',38.2544,-104.6091],['Fort Smith','AR',35.3859,-94.3985],
+      ['Fayetteville','AR',36.0625,-94.1574],['Asheville','NC',35.5951,-82.5515],
+      ['Wilmington','NC',34.2257,-77.9447],['Wilmington','DE',39.7391,-75.5398],
+      ['Dover','DE',39.1582,-75.5244],['Burlington','VT',44.4759,-73.2121],
+      ['Montpelier','VT',44.2601,-72.5754],['Concord','NH',43.2081,-71.5376],
+      ['Manchester','NH',42.9956,-71.4548],['Portland','ME',43.6591,-70.2568],
+      ['Augusta','ME',44.3107,-69.7795],['Bangor','ME',44.8016,-68.7712],
+      ['Frankfort','KY',38.2009,-84.8733],['Bowling Green','KY',36.9685,-86.4808],
+      ['Lafayette','LA',30.2241,-92.0198],['Shreveport','LA',32.5252,-93.7502],
+      ['Lake Charles','LA',30.2266,-93.2174],['Gulfport','MS',30.3674,-89.0928],
+      ['Biloxi','MS',30.3960,-88.8853],['Tuscaloosa','AL',33.2098,-87.5692],
+      ['Athens','GA',33.9519,-83.3576],['Macon','GA',32.8407,-83.6324],
+      ['Columbia','SC',34.0007,-81.0348],['Greenville','SC',34.8526,-82.394],
+      ['Myrtle Beach','SC',33.6891,-78.8867],['Roanoke','VA',37.271,-79.9414],
+      ['Newport News','VA',37.0871,-76.473],['Hampton','VA',37.0299,-76.3452],
+      ['Alexandria','VA',38.8048,-77.0469],['Arlington','VA',38.8816,-77.0910],
+      ['Murfreesboro','TN',35.8456,-86.3903],['Clarksville','TN',36.5298,-87.3595],
+      ['Trenton','NJ',40.2206,-74.7597],['Atlantic City','NJ',39.3643,-74.4229],
+      ['Allentown','PA',40.6084,-75.4902],['Erie','PA',42.1292,-80.0851],
+      ['Scranton','PA',41.4090,-75.6624],['Harrisburg','PA',40.2732,-76.8867],
+      ['Lancaster','PA',40.0379,-76.3055],['Annapolis','MD',38.9784,-76.4922],
+      ['Frederick','MD',39.4143,-77.4105],['Cambridge','MA',42.3736,-71.1097],
+      ['Lowell','MA',42.6334,-71.3162],['Bellevue','WA',47.6101,-122.2015],
+      ['Olympia','WA',47.0379,-122.9007],['Vancouver','WA',45.6387,-122.6615],
+      ['Bend','OR',44.0582,-121.3153],['Pasadena','CA',34.1478,-118.1445],
+      ['Berkeley','CA',37.8716,-122.2727],['Glendale','CA',34.1425,-118.2551],
+      ['Burbank','CA',34.1808,-118.309],['Santa Monica','CA',34.0195,-118.4912],
+      ['Beverly Hills','CA',34.0736,-118.4004],['Santa Barbara','CA',34.4208,-119.6982],
+      ['Palo Alto','CA',37.4419,-122.143],['Mountain View','CA',37.3861,-122.0839],
+      ['San Jose','CA',37.3382,-121.8863],['Santa Clara','CA',37.3541,-121.9552],
+      ['Sunnyvale','CA',37.3688,-122.0363],['Mesquite','TX',32.7668,-96.5992],
+      ['McAllen','TX',26.2034,-98.2300],['Brownsville','TX',25.9018,-97.4975],
+      ['Beaumont','TX',30.0860,-94.1018],['Waco','TX',31.5494,-97.1467],
+      ['Tyler','TX',32.3513,-95.3011],['Midland','TX',31.9974,-102.0779],
+      ['Odessa','TX',31.8457,-102.3676],['Amarillo','TX',35.222,-101.8313],
+      ['College Station','TX',30.6280,-96.3344],['Killeen','TX',31.1171,-97.7278],
+      ['Galveston','TX',29.3013,-94.7977],['Frisco','TX',33.1507,-96.8236],
+      ['McKinney','TX',33.1972,-96.6398],['Denton','TX',33.2148,-97.1331],
+      ['Round Rock','TX',30.5083,-97.6789],['Sugar Land','TX',29.5994,-95.6145],
+      ['The Woodlands','TX',30.1658,-95.4613],['Pearland','TX',29.5636,-95.2860],
+      ['Salinas','CA',36.6777,-121.6555],['Monterey','CA',36.6002,-121.8947],
+      ['Carlsbad','CA',33.1581,-117.3506],['Oceanside','CA',33.1959,-117.3795],
+      ['Escondido','CA',33.1192,-117.0864],['Temecula','CA',33.4936,-117.1484],
+      ['Fontana','CA',34.0922,-117.435],['Ontario','CA',34.0633,-117.6509],
+      ['Reston','VA',38.9586,-77.3570],['Bethesda','MD',38.9847,-77.0947],
+      ['Silver Spring','MD',38.9907,-77.0261],['Hoboken','NJ',40.7440,-74.0324],
+      ['Edison','NJ',40.5187,-74.4121],['Elizabeth','NJ',40.6640,-74.2107],
+      ['Fairbanks','AK',64.8378,-147.7164],['Juneau','AK',58.3019,-134.4197],
+      ['Hilo','HI',19.7297,-155.0900],['Kailua','HI',21.4022,-157.7394],
+      ['Carmel','IN',39.9784,-86.1180],['Olathe','KS',38.8814,-94.8191],
+      ['Overland Park','KS',38.9822,-94.6708],['Kansas City','KS',39.1141,-94.6275],
+      ['Norman','OK',35.222,-97.4395],['Edmond','OK',35.6528,-97.4781],
+      ['Broken Arrow','OK',36.0526,-95.7908],['Green Bay','WI',44.5133,-88.0133],
+      ['Appleton','WI',44.2619,-88.4154],['Eau Claire','WI',44.8113,-91.4985],
+      ['Duluth','MN',46.7867,-92.1005],['Rochester','MN',44.0121,-92.4802],
+      ['Bloomington','MN',44.8408,-93.2983],
+    ];
+
+    const STATE_INFO = [
+      ['AL','Alabama',32.806671,-86.79113],['AK','Alaska',64.0685,-152.2782],
+      ['AZ','Arizona',34.27,-111.66],['AR','Arkansas',34.9697,-92.3731],
+      ['CA','California',36.1162,-119.6816],['CO','Colorado',39.0598,-105.3111],
+      ['CT','Connecticut',41.5978,-72.7554],['DE','Delaware',39.3185,-75.5071],
+      ['DC','District of Columbia',38.9072,-77.0369],['FL','Florida',27.7663,-81.6868],
+      ['GA','Georgia',33.0406,-83.6431],['HI','Hawaii',21.0943,-157.4983],
+      ['ID','Idaho',44.2405,-114.4788],['IL','Illinois',40.3495,-88.9861],
+      ['IN','Indiana',39.8494,-86.2583],['IA','Iowa',42.0115,-93.2105],
+      ['KS','Kansas',38.5266,-96.7265],['KY','Kentucky',37.6681,-84.6701],
+      ['LA','Louisiana',31.1695,-91.8678],['ME','Maine',44.6939,-69.3819],
+      ['MD','Maryland',39.0639,-76.8021],['MA','Massachusetts',42.2302,-71.5301],
+      ['MI','Michigan',43.3266,-84.5361],['MN','Minnesota',45.6945,-93.9002],
+      ['MS','Mississippi',32.7416,-89.6787],['MO','Missouri',38.4561,-92.2884],
+      ['MT','Montana',46.9219,-110.4544],['NE','Nebraska',41.1254,-98.2681],
+      ['NV','Nevada',38.3135,-117.0554],['NH','New Hampshire',43.4525,-71.5639],
+      ['NJ','New Jersey',40.2989,-74.521],['NM','New Mexico',34.8405,-106.2485],
+      ['NY','New York',42.1657,-74.9481],['NC','North Carolina',35.6301,-79.8064],
+      ['ND','North Dakota',47.5289,-99.784],['OH','Ohio',40.3888,-82.7649],
+      ['OK','Oklahoma',35.5653,-96.9289],['OR','Oregon',44.572,-122.0709],
+      ['PA','Pennsylvania',40.5908,-77.2098],['RI','Rhode Island',41.6809,-71.5118],
+      ['SC','South Carolina',33.8569,-80.945],['SD','South Dakota',44.2998,-99.4388],
+      ['TN','Tennessee',35.7478,-86.6923],['TX','Texas',31.0545,-97.5635],
+      ['UT','Utah',40.15,-111.8624],['VT','Vermont',44.0459,-72.7107],
+      ['VA','Virginia',37.7693,-78.17],['WA','Washington',47.4009,-121.4905],
+      ['WV','West Virginia',38.4912,-80.9545],['WI','Wisconsin',44.2685,-89.6165],
+      ['WY','Wyoming',42.756,-107.3025],
+    ];
+    const STATE_BY_CODE = Object.fromEntries(STATE_INFO.map(s => [s[0], s]));
+    const STATE_BY_NAME = Object.fromEntries(STATE_INFO.map(s => [s[1].toLowerCase(), s]));
+
+    const norm = s => (s || '').trim().toLowerCase().replace(/\bst\.\s*/g, 'saint ').replace(/\s+/g, ' ');
+
+    function resolveState(input) {
+      if (!input) return null;
+      const k = input.trim().toUpperCase();
+      if (STATE_BY_CODE[k]) return STATE_BY_CODE[k];
+      const byName = STATE_BY_NAME[input.trim().toLowerCase()];
+      return byName || null;
+    }
+
+    function searchCities(query, limit = 8) {
+      if (!query) return [];
+      const q = query.trim();
+      let cityPart = q, statePart = '';
+      if (q.includes(',')) {
+        const [a, b] = q.split(',').map(s => s.trim());
+        cityPart = a; statePart = b || '';
+      } else {
+        const parts = q.split(/\s+/);
+        if (parts.length >= 2) {
+          const last = parts[parts.length - 1];
+          if (resolveState(last) || resolveState(parts.slice(-2).join(' '))) {
+            statePart = resolveState(parts.slice(-2).join(' ')) ? parts.slice(-2).join(' ') : last;
+            cityPart = q.slice(0, q.length - statePart.length).trim();
+          }
+        }
+      }
+      const cityN = norm(cityPart);
+      const stateInfo = statePart ? resolveState(statePart) : null;
+      const stateCode = stateInfo ? stateInfo[0] : null;
+      const results = [];
+      for (const [city, code, lat, lng] of CITIES) {
+        if (stateCode && code !== stateCode) continue;
+        const cn = norm(city);
+        if (cn.startsWith(cityN) || cn.includes(cityN)) {
+          results.push({ city, state: code, lat, lng, score: cn === cityN ? 0 : (cn.startsWith(cityN) ? 1 : 2) });
+          if (results.length > 60) break;
+        }
+      }
+      results.sort((a, b) => a.score - b.score);
+      return results.slice(0, limit);
+    }
+
+    function geocode(query) {
+      const r = searchCities(query, 1);
+      if (r.length) return { ...r[0], approximate: false };
+      const parts = query.split(',').map(s => s.trim());
+      for (const p of parts.reverse()) {
+        const s = resolveState(p);
+        if (s) return { city: parts.join(', '), state: s[0], lat: s[2], lng: s[3], approximate: true };
+      }
+      return null;
+    }
+
+    /* ============================================================
+       US MAP
+       ============================================================ */
+    function USMap({ assets, hoveredId, setHoveredId, selectedId, setSelectedId, selectedClusterKey, setSelectedClusterKey, matchedIds }) {
+      const [geo, setGeo] = useState(null);
+      const [size, setSize] = useState({ w: 1000, h: 600 });
+      const [status, setStatus] = useState('loading'); // loading | ok | fallback
+      const wrapRef = useRef(null);
+
+      useEffect(() => {
+        let cancelled = false;
+        // Try jsdelivr first (most reliable CORS), then unpkg, then a github mirror
+        const tryFetch = async () => {
+          const sources = [
+            { url: 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json', topo: true },
+            { url: 'https://unpkg.com/us-atlas@3/states-10m.json',           topo: true },
+            { url: 'https://cdn.jsdelivr.net/npm/us-atlas@2/us/states-10m.json', topo: true },
+          ];
+          for (const src of sources) {
+            try {
+              const r = await fetch(src.url);
+              if (!r.ok) continue;
+              const data = await r.json();
+              if (cancelled) return;
+              if (src.topo) {
+                const geo = topoToGeo(data, 'states');
+                if (geo && geo.features.length > 5) {
+                  setGeo(geo); setStatus('ok'); return;
+                }
+              } else {
+                setGeo(data); setStatus('ok'); return;
+              }
+            } catch (e) { /* next */ }
+          }
+          if (!cancelled) setStatus('fallback');
+        };
+        tryFetch();
+        return () => { cancelled = true; };
+      }, []);
+
+      useEffect(() => {
+        if (!wrapRef.current) return;
+        const ro = new ResizeObserver(entries => {
+          const e = entries[0];
+          if (!e) return;
+          const w = Math.max(400, e.contentRect.width);
+          setSize({ w, h: Math.round(w * 0.6) });
+        });
+        ro.observe(wrapRef.current);
+        return () => ro.disconnect();
+      }, []);
+
+      const projection = useMemo(() => {
+        return d3.geoAlbersUsa().scale(size.w * 1.25).translate([size.w / 2, size.h / 2]);
+      }, [size.w, size.h]);
+      const pathGen = useMemo(() => d3.geoPath(projection), [projection]);
+
+      const pinPositions = useMemo(() => {
+        return assets.map(a => {
+          const p = projection([a.lng, a.lat]);
+          return p ? { ...a, x: p[0], y: p[1] } : null;
+        }).filter(Boolean);
+      }, [assets, projection]);
+
+      // group pins by city+state into clusters
+      const clusters = useMemo(() => {
+        const TYPE_PRIORITY = { employee: 0, partner: 1, contractor: 2 };
+        const map = new Map();
+        for (const p of pinPositions) {
+          const key = `${p.city}|${p.state}`;
+          if (!map.has(key)) {
+            map.set(key, { key, city: p.city, state: p.state, x: p.x, y: p.y, assets: [] });
+          }
+          map.get(key).assets.push(p);
+        }
+        const out = [];
+        for (const cl of map.values()) {
+          const counts = {};
+          for (const a of cl.assets) counts[a.type] = (counts[a.type] || 0) + 1;
+          cl.dominantType = Object.entries(counts)
+            .sort((a, b) => b[1] - a[1] || TYPE_PRIORITY[a[0]] - TYPE_PRIORITY[b[0]])[0][0];
+          cl.typeCounts = counts;
+          cl.isMixed = Object.keys(counts).length > 1;
+          out.push(cl);
+        }
+        return out;
+      }, [pinPositions]);
+
+      const hoveredCluster = useMemo(() => {
+        if (!hoveredId) return null;
+        return clusters.find(cl => cl.assets.some(a => a.id === hoveredId)) || null;
+      }, [hoveredId, clusters]);
+
+      // fallback: draw simple circles at state centroids if no geo data loaded
+      const fallbackStates = useMemo(() => {
+        if (status !== 'fallback') return null;
+        return STATE_INFO.map(([code, name, lat, lng]) => {
+          const p = projection([lng, lat]);
+          return p ? { code, name, x: p[0], y: p[1] } : null;
+        }).filter(Boolean);
+      }, [status, projection]);
+
+      return (
+        <div ref={wrapRef} className="relative w-full" style={{ minHeight: 380 }}>
+          <div className="absolute inset-0 rounded-2xl pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 30% 20%, #0a1d36 0%, #050b16 70%)`,
+              boxShadow: `inset 0 0 120px rgba(0,0,0,0.55)`,
+            }} />
+          <div className="absolute inset-0 rounded-2xl pointer-events-none"
+            style={{
+              opacity: 0.16,
+              backgroundImage:
+                `linear-gradient(${C.borderSoft} 1px, transparent 1px),
+                 linear-gradient(90deg, ${C.borderSoft} 1px, transparent 1px)`,
+              backgroundSize: '32px 32px',
+            }} />
+
+          <svg viewBox={`0 0 ${size.w} ${size.h}`} width="100%" height="100%"
+            className="relative block"
+            style={{ filter: 'drop-shadow(0 0 60px rgba(0, 212, 255, 0.06))' }}>
+            <defs>
+              <linearGradient id="landGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#1d3a64" />
+                <stop offset="100%" stopColor="#0f1e36" />
+              </linearGradient>
+              <filter id="pinGlow" x="-200%" y="-200%" width="500%" height="500%">
+                <feGaussianBlur stdDeviation="3.5" />
+              </filter>
+              <filter id="strongGlow" x="-200%" y="-200%" width="500%" height="500%">
+                <feGaussianBlur stdDeviation="6" />
+              </filter>
+            </defs>
+
+            {/* primary: real state outlines */}
+            {status === 'ok' && geo && geo.features.map((f, i) => (
+              <path key={i} d={pathGen(f) || ''}
+                fill="url(#landGrad)" stroke={C.landStroke} strokeWidth={0.8}
+                style={{ transition: 'fill 200ms ease' }} />
+            ))}
+
+            {/* fallback: state hex/dots at centroids */}
+            {status === 'fallback' && fallbackStates && fallbackStates.map((s) => (
+              <g key={s.code}>
+                <circle cx={s.x} cy={s.y} r={size.w * 0.022} fill="url(#landGrad)" stroke={C.landStroke} strokeWidth={0.8} />
+                <text x={s.x} y={s.y + 4} textAnchor="middle"
+                  fill={C.textMuted} fontFamily="'IBM Plex Mono', monospace"
+                  fontSize={Math.max(10, size.w * 0.011)} fontWeight="600" letterSpacing="0.5">
+                  {s.code}
+                </text>
+              </g>
+            ))}
+
+            {status === 'loading' && (
+              <text x={size.w / 2} y={size.h / 2} textAnchor="middle"
+                fill={C.textDim} fontFamily="'IBM Plex Mono', monospace" fontSize="12" letterSpacing="2">
+                LOADING TERRITORY…
+              </text>
+            )}
+
+            {/* connector lines from geographic center to each cluster */}
+            {clusters.length > 0 && (() => {
+              const cx = projection([-98.5795, 39.8283]);
+              if (!cx) return null;
+              return (
+                <g opacity="0.25">
+                  {clusters.map(cl => (
+                    <line key={`l${cl.key}`} x1={cx[0]} y1={cx[1]} x2={cl.x} y2={cl.y}
+                      stroke={TYPE_META[cl.dominantType].color} strokeWidth={0.6} strokeDasharray="2 4" />
+                  ))}
+                  <circle cx={cx[0]} cy={cx[1]} r={3} fill={C.text} opacity={0.5} />
+                </g>
+              );
+            })()}
+
+            {/* CLUSTER PINS — size scales with asset count, count shown for n>1 */}
+            {clusters.map((cl) => {
+              const n = cl.assets.length;
+              const meta = TYPE_META[cl.dominantType];
+              const isHover = cl.assets.some(a => a.id === hoveredId);
+              const isSelected =
+                cl.assets.some(a => a.id === selectedId) ||
+                selectedClusterKey === cl.key;
+              // BEACON: pin "lights up" when ANY of its assets match the search
+              const hasSearch = matchedIds && matchedIds.size > 0;
+              const isMatched = hasSearch && cl.assets.some(a => matchedIds.has(a.id));
+              const active = isHover || isSelected || isMatched;
+              const dimmed = hasSearch && !isMatched;
+
+              // size grows with asset count, capped
+              const crispR = 6 + Math.min(Math.sqrt(n - 1) * 2.5, 10);
+              const outerR = crispR * 1.4;
+              const haloR  = crispR * 1.85;
+              const ringR  = crispR * 2.3;
+              const fontSize = Math.max(10, Math.min(Math.round(crispR * 1.25), 16));
+
+              const onClickPin = (e) => {
+                e.stopPropagation();
+                if (n === 1) setSelectedId(cl.assets[0].id);
+                else setSelectedClusterKey(cl.key);
+              };
+              // hover the first asset in the cluster (drives the tooltip / list highlight)
+              const onEnter = () => setHoveredId(cl.assets[0].id);
+              const onLeave = () => setHoveredId(null);
+
+              return (
+                <g key={cl.key}
+                  transform={`translate(${cl.x},${cl.y})`}
+                  style={{ cursor: 'pointer', opacity: dimmed ? 0.22 : 1, transition: 'opacity 200ms ease' }}
+                  onMouseEnter={onEnter}
+                  onMouseLeave={onLeave}
+                  onClick={onClickPin}>
+
+                  {/* search-match pulse ring */}
+                  {isMatched && !isSelected && (
+                    <circle r={ringR + 6} fill="none" stroke={meta.color} strokeWidth={1.5}
+                      opacity={0.55} />
+                  )}
+                  {/* selection ring */}
+                  {isSelected && (
+                    <circle r={ringR + 4} fill="none" stroke={meta.color} strokeWidth={1.5}
+                      opacity={0.7} strokeDasharray="3 3" />
+                  )}
+                  {/* outer ring */}
+                  <circle r={active ? ringR + 2 : ringR} fill={meta.color} opacity={0.18} filter="url(#strongGlow)" />
+                  {/* halo */}
+                  <circle r={active ? haloR + 2 : haloR} fill={meta.color} opacity={0.32} filter="url(#strongGlow)" />
+                  {/* outer pin glow */}
+                  <circle r={active ? outerR + 2 : outerR} fill={meta.color} filter="url(#pinGlow)" opacity={0.9} />
+                  {/* crisp pin */}
+                  <circle r={active ? crispR + 1.5 : crispR} fill={meta.color} stroke="white" strokeWidth={1.5} />
+
+                  {/* center: count if cluster, white dot if single */}
+                  {n > 1 ? (
+                    <text x={0} y={0} textAnchor="middle" dominantBaseline="central"
+                      fill="white" fontFamily="'IBM Plex Mono', monospace" fontWeight="700"
+                      fontSize={fontSize}
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                      {n}
+                    </text>
+                  ) : (
+                    <circle r={(active ? crispR + 1.5 : crispR) * 0.4} fill="white" />
+                  )}
+                </g>
+              );
+            })}
+
+            {/* hover tooltip */}
+            {hoveredCluster && (() => {
+              const meta = TYPE_META[hoveredCluster.dominantType];
+              const n = hoveredCluster.assets.length;
+              const isCluster = n > 1;
+              const w = 230, h = 76;
+              const tx = Math.min(Math.max(hoveredCluster.x + 16, 10), size.w - w - 10);
+              const ty = Math.max(hoveredCluster.y - h - 12, 10);
+              const title = isCluster
+                ? `${hoveredCluster.city}, ${hoveredCluster.state}`
+                : (hoveredCluster.assets[0].name || meta.label);
+              const sub = isCluster
+                ? `${n} ASSETS · CLICK TO VIEW`
+                : meta.label.toUpperCase();
+              const detail = isCluster
+                ? hoveredCluster.assets.map(a => TYPE_META[a.type].label).join(' · ')
+                : `${hoveredCluster.assets[0].city}, ${hoveredCluster.assets[0].state}`;
+              return (
+                <g transform={`translate(${tx},${ty})`} style={{ pointerEvents: 'none' }}>
+                  <rect width={w} height={h} rx={10} fill={C.panelSolid} stroke={meta.color} strokeWidth={1.2} />
+                  <rect x={0} y={0} width={4} height={h} fill={meta.color} rx={2} />
+                  <text x={14} y={24} fill={C.text} fontFamily="'IBM Plex Sans', sans-serif" fontSize="14" fontWeight="600">
+                    {title}
+                  </text>
+                  <text x={14} y={44} fill={meta.color} fontFamily="'IBM Plex Mono', monospace" fontSize="10" letterSpacing="2" fontWeight="600">
+                    {sub}
+                  </text>
+                  <text x={14} y={62} fill={C.textMuted} fontFamily="'IBM Plex Sans', sans-serif" fontSize="11">
+                    {detail.length > 32 ? detail.slice(0, 32) + '…' : detail}
+                  </text>
+                </g>
+              );
+            })()}
+          </svg>
+
+          {/* corner overlay labels */}
+          <div className="absolute top-3 left-4 flex items-center gap-2 pointer-events-none"
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            <span style={{ color: C.accent, fontSize: 10, letterSpacing: 3 }}>● LIVE</span>
+            <span style={{ color: C.textDim, fontSize: 10, letterSpacing: 3 }}>NETWORK MAP</span>
+            {status === 'fallback' && (
+              <span style={{ color: C.textMuted, fontSize: 9, letterSpacing: 2, marginLeft: 8 }}>· schematic mode</span>
+            )}
+          </div>
+          <div className="absolute top-3 right-4 pointer-events-none text-right"
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            <div style={{ color: C.textDim, fontSize: 9, letterSpacing: 2 }}>ASSETS DEPLOYED</div>
+            <div style={{ color: C.text, fontSize: 24, fontWeight: 600, letterSpacing: 1, lineHeight: 1 }}>
+              {String(assets.length).padStart(3, '0')}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ============================================================
+       FORM
+       ============================================================ */
+    function AddAssetForm({ onAdd }) {
+      const [name, setName] = useState('');
+      const [company, setCompany] = useState('');
+      const [type, setType] = useState('employee');
+      const [location, setLocation] = useState('');
+      const [address, setAddress] = useState('');
+      const [notes, setNotes] = useState('');
+      const [suggestions, setSuggestions] = useState([]);
+      const [showSugg, setShowSugg] = useState(false);
+      const [error, setError] = useState('');
+      const [highlight, setHighlight] = useState(0);
+      const inputRef = useRef(null);
+
+      useEffect(() => {
+        if (location.trim().length < 1) { setSuggestions([]); return; }
+        setSuggestions(searchCities(location, 6));
+        setHighlight(0);
+      }, [location]);
+
+      const pick = (s) => { setLocation(`${s.city}, ${s.state}`); setShowSugg(false); };
+
+      const submit = () => {
+        if (!name.trim()) { setError('Name is required.'); return; }
+        if (!location.trim()) { setError('Location is required.'); return; }
+        const g = geocode(location);
+        if (!g) { setError("Couldn't find that location. Try \"City, ST\"."); return; }
+        onAdd({
+          id: Date.now() + Math.random(),
+          name: name.trim(),
+          company: company.trim(),
+          type,
+          city: g.city, state: g.state,
+          address: address.trim(),
+          notes: notes.trim(),
+          lat: g.lat,
+          lng: g.lng,
+          approximate: g.approximate,
+          _fresh: true,
+        });
+        setName(''); setCompany(''); setLocation(''); setAddress(''); setNotes(''); setError('');
+        inputRef.current?.focus();
+      };
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h3 style={{ fontFamily: "'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif",
+              fontSize: 13, fontWeight: 600, letterSpacing: 3, color: C.text, textTransform: 'uppercase' }}>
+              Deploy New Asset
+            </h3>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.textDim, letterSpacing: 2 }}>/ADD</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(TYPE_META).map(([k, meta]) => {
+              const Ico = meta.Icon;
+              const active = type === k;
+              return (
+                <button key={k} onClick={() => setType(k)}
+                  className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg transition-all"
+                  style={{
+                    background: active ? `${meta.color}25` : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${active ? meta.color : C.border}`,
+                    color: active ? meta.color : C.textMuted,
+                    boxShadow: active ? `0 0 16px ${meta.color}33` : 'none',
+                  }}>
+                  <Ico size={18} />
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 1.5 }}>
+                    {meta.label.toUpperCase()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div>
+            <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>NAME</label>
+            <input ref={inputRef}
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="e.g. Maria Santos, Acme Logistics, etc."
+              className="w-full mt-1 px-3 py-2.5 rounded-lg outline-none transition-all"
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
+                fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}
+              onFocus={(e) => e.target.style.borderColor = C.accent}
+              onBlur={(e) => e.target.style.borderColor = C.border} />
+          </div>
+
+          <div>
+            <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>COMPANY</label>
+            <input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="e.g. STS, Acme Logistics"
+              className="w-full mt-1 px-3 py-2.5 rounded-lg outline-none transition-all"
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
+                fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}
+              onFocus={(e) => e.target.style.borderColor = C.accent}
+              onBlur={(e) => e.target.style.borderColor = C.border} />
+          </div>
+
+          <div className="relative">
+            <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>LOCATION</label>
+            <div className="relative mt-1">
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.textDim, pointerEvents: 'none' }}>
+                <IcSearch size={14} />
+              </span>
+              <input
+                value={location}
+                onChange={(e) => { setLocation(e.target.value); setError(''); setShowSugg(true); }}
+                onFocus={() => setShowSugg(true)}
+                onBlur={() => setTimeout(() => setShowSugg(false), 150)}
+                onKeyDown={(e) => {
+                  if (showSugg && suggestions.length) {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); }
+                    else if (e.key === 'Enter') { e.preventDefault(); if (suggestions[highlight]) pick(suggestions[highlight]); else submit(); }
+                    else if (e.key === 'Escape') setShowSugg(false);
+                  } else if (e.key === 'Enter') submit();
+                }}
+                placeholder='City, ST  (e.g. "Tampa, FL")'
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
+                  fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}
+                onFocusCapture={(e) => e.target.style.borderColor = C.accent}
+                onBlurCapture={(e) => e.target.style.borderColor = C.border} />
+            </div>
+
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 z-20 mt-1 rounded-lg overflow-hidden shadow-2xl"
+                style={{ background: C.panelSolid, border: `1px solid ${C.border}` }}>
+                {suggestions.map((s, i) => (
+                  <button key={`${s.city}-${s.state}-${i}`}
+                    onMouseDown={(e) => { e.preventDefault(); pick(s); }}
+                    onMouseEnter={() => setHighlight(i)}
+                    className="w-full text-left px-3 py-2 flex items-center justify-between transition-colors"
+                    style={{
+                      background: highlight === i ? C.panelStrong : 'transparent',
+                      color: C.text, fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13,
+                      borderBottom: i < suggestions.length - 1 ? `1px solid ${C.border}` : 'none',
+                    }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: C.accent }}><IcMapPin size={11} /></span>
+                      {s.city}
+                    </span>
+                    <span style={{ color: C.textDim, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 1 }}>
+                      {s.state}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div style={{ color: C.accent, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 1 }}>⚠ {error}</div>
+          )}
+
+          <div>
+            <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>WORK ADDRESS <span style={{ color: C.textDim, opacity: 0.6 }}>(optional)</span></label>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main St, Suite 400"
+              className="w-full mt-1 px-3 py-2.5 rounded-lg outline-none transition-all"
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
+                fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}
+              onFocus={(e) => e.target.style.borderColor = C.accent}
+              onBlur={(e) => e.target.style.borderColor = C.border} />
+          </div>
+
+          <div>
+            <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>RELATIONSHIP NOTES <span style={{ color: C.textDim, opacity: 0.6 }}>(optional)</span></label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Context, history, key contacts, terms…"
+              rows={3}
+              className="w-full mt-1 px-3 py-2.5 rounded-lg outline-none transition-all resize-none"
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
+                fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, lineHeight: 1.5 }}
+              onFocus={(e) => e.target.style.borderColor = C.accent}
+              onBlur={(e) => e.target.style.borderColor = C.border} />
+          </div>
+
+          <button
+            onClick={submit}
+            className="w-full py-3 rounded-lg flex items-center justify-center gap-2 transition-transform"
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.99)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
+            style={{
+              background: `linear-gradient(135deg, ${C.accent} 0%, ${BRAND.gold} 130%)`,
+              color: '#0A1F3D', fontFamily: "'IBM Plex Sans', sans-serif",
+              fontWeight: 700, fontSize: 14, letterSpacing: 0.5,
+              boxShadow: `0 8px 28px ${C.accentSoft}`, border: 'none', cursor: 'pointer',
+            }}>
+            <IcPlus size={16} strokeWidth={3} /> DROP PIN
+          </button>
+        </div>
+      );
+    }
+
+    /* ============================================================
+       LIST
+       ============================================================ */
+    function AssetList({ assets, hoveredId, setHoveredId, filter, setFilter, setSelectedId, searchQuery, setSearchQuery, matchedIds }) {
+      // Apply type filter, then search filter
+      const typeFiltered = filter === 'all' ? assets : assets.filter(a => a.type === filter);
+      const filtered = (searchQuery && searchQuery.trim())
+        ? typeFiltered.filter(a => matchedIds.has(a.id))
+        : typeFiltered;
+
+      // Open the Beacon Location page (parent window has the router)
+      const openLocation = (a) => {
+        try {
+          window.parent.postMessage({ type: 'beacon-open-location', locationId: a.id }, '*');
+        } catch (e) {}
+      };
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h3 style={{ fontFamily: "'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif",
+              fontSize: 13, fontWeight: 600, letterSpacing: 3, color: C.text, textTransform: 'uppercase' }}>Locations</h3>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.textDim, letterSpacing: 2 }}>
+              {String(filtered.length).padStart(2, '0')} / {String(assets.length).padStart(2, '0')}
+            </span>
+          </div>
+
+          {/* SEARCH INPUT — drives pin highlighting on the map */}
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+              color: C.textDim, fontSize: 12, pointerEvents: 'none' }}>🔍</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search city, address, fuel…"
+              autoComplete="off"
+              style={{
+                width: '100%', padding: '8px 28px 8px 30px',
+                background: 'rgba(0,0,0,0.30)', color: C.text,
+                border: `1px solid ${C.border}`, borderRadius: 8,
+                fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5,
+                outline: 'none',
+              }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  background: 'transparent', border: 'none', color: C.textMuted, cursor: 'pointer',
+                  fontSize: 14, lineHeight: 1, padding: '2px 6px' }}
+                aria-label="Clear search">×</button>
+            )}
+          </div>
+
+          {/* Fuel-type filter chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              ['all', 'All', null],
+              ['employee', 'Electric', C.employee],
+              ['partner', 'Gas', C.partner],
+              ['contractor', 'Dual', C.contractor],
+            ].map(([k, label, col]) => (
+              <button key={k} onClick={() => setFilter(k)}
+                className="px-2.5 py-1 rounded-md transition-colors"
+                style={{
+                  background: filter === k ? (col || C.text) + '22' : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${filter === k ? (col || C.text) : C.border}`,
+                  color: filter === k ? (col || C.text) : C.textMuted,
+                  fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5,
+                  cursor: 'pointer',
+                }}>
+                {label.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: '42vh', scrollbarWidth: 'thin' }}>
+            {filtered.length === 0 && (
+              <div className="text-center py-8 rounded-lg"
+                style={{ border: `1px dashed ${C.border}`, color: C.textDim,
+                  fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12 }}>
+                {assets.length === 0
+                  ? 'No locations in portfolio yet.'
+                  : (searchQuery ? `No matches for "${searchQuery}".` : 'No locations match this filter.')}
+              </div>
+            )}
+            {filtered.map(a => {
+              const meta = TYPE_META[a.type];
+              const Ico = meta.Icon;
+              const active = hoveredId === a.id;
+              return (
+                <div key={a.id}
+                  onMouseEnter={() => setHoveredId(a.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => setSelectedId(a.id)}
+                  className="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer"
+                  style={{
+                    background: active ? `${meta.color}1A` : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${active ? meta.color : C.border}`,
+                    boxShadow: active ? `0 0 18px ${meta.color}25` : 'none',
+                  }}>
+                  <div className="flex items-center justify-center rounded-md flex-shrink-0"
+                    style={{ width: 32, height: 32, background: `${meta.color}22`, color: meta.color,
+                      boxShadow: `inset 0 0 8px ${meta.color}33` }}>
+                    <Ico size={15} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate" style={{
+                      color: C.text, fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, fontWeight: 500,
+                    }}>{a.name}</div>
+                    <div style={{
+                      color: C.textMuted, fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 0.5,
+                    }}>{a.city}, {a.state} {a.approximate && '· approx'}</div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); openLocation(a); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded"
+                    style={{ color: C.text, background: `${meta.color}22`, border: `1px solid ${meta.color}55`,
+                      cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 1 }}
+                    aria-label="Open in Beacon">
+                    OPEN →
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    /* ============================================================
+       CLUSTER LIST — opens when a multi-asset pin is clicked
+       ============================================================ */
+    function ClusterList({ cluster, onSelectAsset, onClose }) {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [onClose]);
+
+      if (!cluster) return null;
+      const n = cluster.assets.length;
+      const counts = cluster.assets.reduce((acc, a) => { acc[a.type] = (acc[a.type] || 0) + 1; return acc; }, {});
+      // pick accent color: if all same type, use it; else use orange
+      const sameType = Object.keys(counts).length === 1;
+      const accent = sameType ? TYPE_META[Object.keys(counts)[0]].color : C.accent;
+
+      return (
+        <>
+          <div onClick={onClose}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: 'rgba(3,8,15,0.7)', backdropFilter: 'blur(4px)',
+            }} />
+
+          <div role="dialog" aria-modal="true"
+            style={{
+              position: 'fixed', zIndex: 51,
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 'min(560px, calc(100vw - 32px))',
+              maxHeight: 'calc(100vh - 64px)',
+              display: 'flex', flexDirection: 'column',
+              background: C.panelSolid,
+              border: `1px solid ${accent}`,
+              borderRadius: 16,
+              boxShadow: `0 24px 80px rgba(0,0,0,0.6), 0 0 60px ${accent}22`,
+              overflow: 'hidden',
+            }}>
+            <div style={{ height: 3, width: '100%', background: accent }} />
+
+            {/* header */}
+            <div style={{ padding: '20px 24px 14px', display: 'flex', alignItems: 'flex-start', gap: 14, borderBottom: `1px solid ${C.border}` }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 10,
+                background: `${accent}22`, color: accent,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `inset 0 0 12px ${accent}44, 0 0 18px ${accent}33`,
+                flexShrink: 0,
+              }}>
+                <IcMapPin size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "'IBM Plex Sans', sans-serif",
+                  fontSize: 20, fontWeight: 600, color: C.text, lineHeight: 1.2,
+                }}>
+                  {cluster.city}, {cluster.state}
+                </div>
+                <div style={{
+                  marginTop: 4,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10, letterSpacing: 2, color: accent, fontWeight: 600,
+                }}>
+                  {n} LOCATIONS · SELECT ONE TO VIEW DETAILS
+                </div>
+                {/* type breakdown chips */}
+                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {Object.entries(counts).map(([k, c]) => {
+                    const m = TYPE_META[k];
+                    return (
+                      <span key={k} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '3px 9px', borderRadius: 999,
+                        background: `${m.color}1A`, border: `1px solid ${m.color}55`,
+                        color: m.color,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: 10, letterSpacing: 1.2, fontWeight: 600,
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, boxShadow: `0 0 6px ${m.color}` }} />
+                        {c} {m.label.toUpperCase()}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <button onClick={onClose} aria-label="Close"
+                style={{
+                  background: 'transparent', border: 'none', color: C.textMuted,
+                  cursor: 'pointer', padding: 6, borderRadius: 6, flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textMuted; }}>
+                <IcX size={18} />
+              </button>
+            </div>
+
+            {/* asset list (scrollable if long) */}
+            <div style={{ overflowY: 'auto', padding: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {cluster.assets.map(a => {
+                  const m = TYPE_META[a.type];
+                  const I = m.Icon;
+                  return (
+                    <button key={a.id}
+                      onClick={() => {
+                        try { window.parent.postMessage({ type: 'beacon-open-location', locationId: a.id }, '*'); } catch (e) {}
+                        onClose();
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 14px', borderRadius: 10,
+                        background: 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${C.border}`,
+                        color: C.text, textAlign: 'left',
+                        cursor: 'pointer', width: '100%',
+                        transition: 'all 120ms ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = `${m.color}12`;
+                        e.currentTarget.style.borderColor = m.color;
+                        e.currentTarget.style.boxShadow = `0 0 18px ${m.color}25`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                        e.currentTarget.style.borderColor = C.border;
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}>
+                      <div style={{
+                        width: 38, height: 38, borderRadius: 9,
+                        background: `${m.color}22`, color: m.color,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: `inset 0 0 10px ${m.color}44`,
+                        flexShrink: 0,
+                      }}>
+                        <I size={17} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: "'IBM Plex Sans', sans-serif",
+                          fontSize: 14.5, fontWeight: 600, color: C.text,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>{a.name}</div>
+                        <div style={{
+                          marginTop: 2,
+                          fontFamily: "'IBM Plex Sans', sans-serif",
+                          fontSize: 12, color: C.textMuted,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {a.company || <span style={{ fontStyle: 'italic', color: C.textDim }}>no company</span>}
+                        </div>
+                      </div>
+                      <div style={{
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: 9, letterSpacing: 1.5, color: m.color, fontWeight: 600,
+                        flexShrink: 0, paddingLeft: 8,
+                      }}>
+                        {m.label.toUpperCase()}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    /* ============================================================
+       INFO CARD — opens when a pin is clicked
+       ============================================================ */
+    function InfoCard({ asset, onClose, onUpdate, onRemove, fromCluster, onBack }) {
+      const [editing, setEditing] = useState(false);
+      const [draft, setDraft] = useState(asset);
+
+      // reset draft when a different asset is selected
+      useEffect(() => { setDraft(asset); setEditing(false); }, [asset?.id]);
+
+      // close on Escape
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [onClose]);
+
+      if (!asset) return null;
+      const meta = TYPE_META[asset.type];
+      const Ico = meta.Icon;
+
+      const save = () => {
+        onUpdate(asset.id, {
+          name: (draft.name || '').trim() || asset.name,
+          company: (draft.company || '').trim(),
+          address: (draft.address || '').trim(),
+          notes: (draft.notes || '').trim(),
+          type: draft.type || asset.type,
+        });
+        setEditing(false);
+      };
+
+      const fieldStyle = {
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${C.border}`,
+        color: C.text,
+        fontFamily: "'IBM Plex Sans', sans-serif",
+        fontSize: 14,
+        borderRadius: 8,
+        padding: '8px 12px',
+        outline: 'none',
+        width: '100%',
+      };
+
+      return (
+        <>
+          {/* backdrop */}
+          <div
+            onClick={onClose}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: 'rgba(3,8,15,0.7)',
+              backdropFilter: 'blur(4px)',
+            }} />
+
+          {/* card */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed', zIndex: 51,
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 'min(560px, calc(100vw - 32px))',
+              maxHeight: 'calc(100vh - 64px)',
+              overflowY: 'auto',
+              background: C.panelSolid,
+              border: `1px solid ${meta.color}`,
+              borderRadius: 16,
+              boxShadow: `0 24px 80px rgba(0,0,0,0.6), 0 0 60px ${meta.color}22`,
+            }}>
+            {/* accent bar */}
+            <div style={{ height: 3, width: '100%', background: meta.color, borderTopLeftRadius: 14, borderTopRightRadius: 14 }} />
+
+            {/* "back to cluster" bar */}
+            {fromCluster && onBack && (
+              <button onClick={onBack}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px',
+                  background: 'transparent', border: 'none',
+                  borderBottom: `1px solid ${C.border}`,
+                  color: C.textMuted, cursor: 'pointer',
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10, letterSpacing: 1.5, fontWeight: 600,
+                  width: '100%', textAlign: 'left',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = meta.color; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}>
+                ← BACK TO {fromCluster.city.toUpperCase()}, {fromCluster.state} ({fromCluster.assets.length} ASSETS)
+              </button>
+            )}
+
+            {/* header */}
+            <div style={{ padding: '20px 24px 12px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 10,
+                background: `${meta.color}22`, color: meta.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `inset 0 0 12px ${meta.color}44, 0 0 18px ${meta.color}33`,
+                flexShrink: 0,
+              }}>
+                <Ico size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {editing ? (
+                  <input
+                    value={draft.name || ''}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    style={{ ...fieldStyle, fontSize: 18, fontWeight: 600, padding: '6px 10px' }} />
+                ) : (
+                  <div style={{
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 20, fontWeight: 600, color: C.text, lineHeight: 1.2,
+                    overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>{asset.name}</div>
+                )}
+                <div style={{
+                  marginTop: 4,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10, letterSpacing: 2, color: meta.color, fontWeight: 600,
+                }}>
+                  {meta.label.toUpperCase()} · {asset.city}, {asset.state}
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  background: 'transparent', border: 'none', color: C.textMuted,
+                  cursor: 'pointer', padding: 6, borderRadius: 6, flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textMuted; }}>
+                <IcX size={18} />
+              </button>
+            </div>
+
+            {/* type selector (only when editing) */}
+            {editing && (
+              <div style={{ padding: '0 24px 4px' }}>
+                <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>TYPE</label>
+                <div className="grid grid-cols-3 gap-2" style={{ marginTop: 6 }}>
+                  {Object.entries(TYPE_META).map(([k, m]) => {
+                    const I = m.Icon;
+                    const active = (draft.type || asset.type) === k;
+                    return (
+                      <button key={k} onClick={() => setDraft({ ...draft, type: k })}
+                        className="flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all"
+                        style={{
+                          background: active ? `${m.color}25` : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${active ? m.color : C.border}`,
+                          color: active ? m.color : C.textMuted,
+                          boxShadow: active ? `0 0 12px ${m.color}33` : 'none',
+                          cursor: 'pointer',
+                        }}>
+                        <I size={16} />
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 1.5 }}>
+                          {m.label.toUpperCase()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* fields */}
+            <div style={{ padding: '8px 24px 4px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* COMPANY */}
+              <div>
+                <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>COMPANY</label>
+                {editing ? (
+                  <input
+                    value={draft.company || ''}
+                    onChange={(e) => setDraft({ ...draft, company: e.target.value })}
+                    placeholder="Company name"
+                    style={{ ...fieldStyle, marginTop: 4 }} />
+                ) : (
+                  <div style={{
+                    marginTop: 4, fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 15, color: asset.company ? C.text : C.textDim,
+                  }}>
+                    {asset.company || <span style={{ fontStyle: 'italic' }}>— not set —</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* WORK ADDRESS */}
+              <div>
+                <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>WORK ADDRESS</label>
+                {editing ? (
+                  <input
+                    value={draft.address || ''}
+                    onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+                    placeholder="Street, suite, city, state, zip"
+                    style={{ ...fieldStyle, marginTop: 4 }} />
+                ) : (
+                  <div style={{
+                    marginTop: 4, fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 14, color: asset.address ? C.text : C.textDim, lineHeight: 1.45,
+                  }}>
+                    {asset.address || <span style={{ fontStyle: 'italic' }}>— not set —</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* NOTES */}
+              <div>
+                <label style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 2, color: C.textDim }}>RELATIONSHIP NOTES</label>
+                {editing ? (
+                  <textarea
+                    value={draft.notes || ''}
+                    onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                    placeholder="Context, history, key contacts, terms…"
+                    rows={5}
+                    style={{ ...fieldStyle, marginTop: 4, lineHeight: 1.5, fontSize: 13.5, resize: 'vertical', minHeight: 100 }} />
+                ) : (
+                  <div style={{
+                    marginTop: 4, padding: '12px 14px', borderRadius: 8,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${C.border}`,
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 13.5, color: asset.notes ? C.text : C.textDim,
+                    lineHeight: 1.55, whiteSpace: 'pre-wrap', minHeight: 60,
+                  }}>
+                    {asset.notes || <span style={{ fontStyle: 'italic' }}>No notes yet. Click Edit to add.</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* footer */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              gap: 12, padding: '16px 24px 20px', marginTop: 8,
+              borderTop: `1px solid ${C.border}`,
+            }}>
+              <button
+                onClick={() => {
+                  try { window.parent.postMessage({ type: 'beacon-open-location', locationId: asset.id }, '*'); } catch (e) {}
+                  onClose();
+                }}
+                style={{
+                  background: `linear-gradient(135deg, ${C.accent} 0%, ${BRAND.gold} 130%)`,
+                  color: '#0A1F3D', border: 'none',
+                  padding: '10px 18px', borderRadius: 8,
+                  fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
+                  boxShadow: `0 6px 20px ${C.accentSoft}`, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                }}>
+                OPEN LOCATION PAGE →
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    /* ============================================================
+       MAIN
+       ============================================================ */
+    function STSAssetMap() {
+      // ── BEACON ADAPTER ────────────────────────────────────────────
+      // Read Beacon's portfolio for the given clientId from localStorage
+      // (same origin as the host page), aggregate accounts into
+      // locations, and present each location as an "asset" so the
+      // existing SVG-map / popup / list code can render it unchanged.
+      const [assets, setAssets] = useState(() => {
+        try {
+          const qp = new URLSearchParams(window.location.search);
+          const clientId = qp.get('clientId') || qp.get('client') || '';
+          if (!clientId) return [];
+          const all = JSON.parse(localStorage.getItem('sts_portfolios_v1') || '{}');
+          const accts = (all[clientId] && Array.isArray(all[clientId])) ? all[clientId] : [];
+          if (!accts.length) return [];
+
+          // address-key normalizer — MUST match beacon-index.html's _locNorm
+          const norm = (s) => String(s == null ? '' : s).toLowerCase().trim().replace(/\s+/g, ' ');
+          const locId = (key) => {
+            try {
+              return btoa(unescape(encodeURIComponent(key))).replace(/[+/=]/g,
+                c => ({ '+': '-', '/': '_', '=': '' }[c]));
+            } catch (e) { return key.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0,80); }
+          };
+
+          // Aggregate accounts by address|city|state into locations
+          const byLoc = new Map();
+          for (const a of accts) {
+            const address = a.address || a.serviceAddress || a.name || '';
+            const city    = a.city  || '';
+            const state   = a.state || '';
+            if (!city || !state) continue;
+            const key = [norm(address), norm(city), norm(state)].join('|');
+            if (!byLoc.has(key)) {
+              byLoc.set(key, { address, city, state, accountCount: 0, hasElectric: false, hasGas: false, kwh: 0, therms: 0, spend: 0 });
+            }
+            const row = byLoc.get(key);
+            row.accountCount++;
+            const fuel = String(a.fuelType || a.fuel || a.utilityType || '').toLowerCase();
+            if (fuel.includes('elec')) { row.hasElectric = true; row.kwh += +(a.annualUsage || a.kwh || 0) || 0; }
+            if (fuel.includes('gas'))  { row.hasGas      = true; row.therms += +(a.annualUsage || a.therms || 0) || 0; }
+            row.spend += +(a.annualSpend || a.spend || 0) || 0;
+          }
+
+          // Convert to asset-shape rows, geocoding by "City, ST"
+          const out = [];
+          for (const [key, loc] of byLoc.entries()) {
+            const g = geocode(`${loc.city}, ${loc.state}`);
+            if (!g) continue;
+            const fuelLabel =
+              (loc.hasElectric && loc.hasGas) ? 'Dual-fuel' :
+              loc.hasGas ? 'Gas only' :
+              loc.hasElectric ? 'Electric only' : 'Other';
+            const fuelType =
+              (loc.hasElectric && loc.hasGas) ? 'contractor' :
+              loc.hasGas ? 'partner' :
+              'employee';
+            const noteParts = [];
+            if (loc.accountCount > 1) noteParts.push(`${loc.accountCount} accounts`);
+            if (loc.spend > 0) noteParts.push(`$${Math.round(loc.spend).toLocaleString()} / yr`);
+            noteParts.push(fuelLabel);
+            out.push({
+              id: locId(key),
+              _addrKey: key,
+              name: loc.address || `${loc.city}, ${loc.state}`,
+              type: fuelType,
+              company: fuelLabel,
+              address: loc.address || `${loc.city}, ${loc.state}`,
+              city: loc.city,
+              state: loc.state,
+              lat: g.lat,
+              lng: g.lng,
+              approximate: g.approximate || !loc.address,
+              notes: noteParts.join(' · '),
+              accountCount: loc.accountCount,
+              hasElectric: loc.hasElectric,
+              hasGas: loc.hasGas,
+              spend: loc.spend,
+            });
+          }
+          return out;
+        } catch (e) {
+          console.error('[beacon-map] portfolio load failed:', e);
+          return [];
+        }
+      });
+      const [hoveredId, setHoveredId] = useState(null);
+      const [selectedId, setSelectedId] = useState(null);
+      const [selectedClusterKey, setSelectedClusterKey] = useState(null);
+      const [filter, setFilter] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+
+      // Hide the boot loader once mounted
+      useEffect(() => {
+        const boot = document.getElementById('boot');
+        if (boot) { boot.classList.add('gone'); setTimeout(() => boot && boot.remove(), 500); }
+      }, []);
+
+      // Compute matched ids from search query — drives pin glow + list filter
+      const matchedIds = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return new Set();
+        const hits = new Set();
+        for (const a of assets) {
+          const hay = `${a.name} ${a.address || ''} ${a.city} ${a.state} ${a.company || ''}`.toLowerCase();
+          if (hay.includes(q)) hits.add(a.id);
+        }
+        return hits;
+      }, [searchQuery, assets]);
+
+      const addAsset = (a) => setAssets(curr => [...curr, a]);
+      const removeAsset = (id) => {
+        setAssets(curr => curr.filter(a => a.id !== id));
+        if (selectedId === id) setSelectedId(null);
+      };
+      const updateAsset = (id, patch) => setAssets(curr => curr.map(a => a.id === id ? { ...a, ...patch } : a));
+      const selectedAsset = useMemo(() => assets.find(a => a.id === selectedId) || null, [assets, selectedId]);
+
+      // cluster the user is currently viewing (or came from)
+      const viewCluster = useMemo(() => {
+        if (!selectedClusterKey) return null;
+        const [city, state] = selectedClusterKey.split('|');
+        const clusterAssets = assets.filter(a => a.city === city && a.state === state);
+        if (!clusterAssets.length) return null;
+        return { key: selectedClusterKey, city, state, assets: clusterAssets };
+      }, [selectedClusterKey, assets]);
+
+      const counts = useMemo(() => ({
+        employee:   assets.filter(a => a.type === 'employee').length,
+        partner:    assets.filter(a => a.type === 'partner').length,
+        contractor: assets.filter(a => a.type === 'contractor').length,
+      }), [assets]);
+
+      return (
+        <div className="min-h-screen w-full"
+          style={{
+            background: `linear-gradient(180deg, ${C.bg} 0%, #03080F 100%)`,
+            color: C.text, fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+          }}>
+          <header className="border-b px-6 py-4 flex items-center justify-between"
+            style={{ borderColor: C.border, background: 'rgba(6,16,31,0.85)', backdropFilter: 'blur(8px)' }}>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center rounded-md"
+                style={{ width: 40, height: 40,
+                  background: `linear-gradient(135deg, ${BRAND.navy}, #16345E)`,
+                  border: `1px solid ${C.border}`,
+                  boxShadow: `0 0 0 2px ${C.accentSoft}, 0 0 20px ${C.accentSoft}` }}>
+                <span style={{ color: C.accent }}><IcRadio size={20} /></span>
+              </div>
+              <div>
+                <div style={{ fontFamily: "'IBM Plex Sans Condensed', sans-serif",
+                  fontSize: 19, fontWeight: 700, letterSpacing: 4, color: C.text }}>
+                  BEACON&nbsp;<span style={{ color: C.accent }}>·</span>&nbsp;PORTFOLIO MAP
+                </div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10, color: C.textDim, letterSpacing: 2 }}>
+                  CLIENT LOCATIONS
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden md:flex items-center gap-4">
+              {Object.entries(TYPE_META).map(([k, meta]) => (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="inline-block rounded-full"
+                    style={{ width: 10, height: 10, background: meta.color,
+                      boxShadow: `0 0 14px ${meta.color}, 0 0 4px ${meta.color}` }} />
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 11, letterSpacing: 1.5, color: C.textMuted }}>
+                    {meta.label}<span style={{ color: C.text, marginLeft: 6 }}>{counts[k]}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </header>
+
+          <div className="mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ maxWidth: 1500 }}>
+            <div className="rounded-2xl overflow-hidden relative lg:col-span-2"
+              style={{ background: C.panelSolid, border: `1px solid ${C.border}` }}>
+              <div className="absolute top-0 left-0 right-0 overflow-hidden" style={{ pointerEvents: 'none', height: 1 }}>
+                <div style={{ height: 1, width: '100%',
+                  background: `linear-gradient(90deg, transparent, ${C.accent}55, transparent)` }} />
+              </div>
+              <USMap assets={assets} hoveredId={hoveredId} setHoveredId={setHoveredId}
+                selectedId={selectedId} setSelectedId={setSelectedId}
+                selectedClusterKey={selectedClusterKey} setSelectedClusterKey={setSelectedClusterKey}
+                matchedIds={matchedIds} />
+              <div className="md:hidden px-4 py-3 flex items-center justify-around border-t" style={{ borderColor: C.border }}>
+                {Object.entries(TYPE_META).map(([k, meta]) => (
+                  <div key={k} className="flex items-center gap-1.5">
+                    <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: meta.color, boxShadow: `0 0 10px ${meta.color}` }} />
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.textMuted, letterSpacing: 1 }}>
+                      {meta.label} <span style={{ color: C.text }}>{counts[k]}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <aside className="space-y-5">
+              <div className="rounded-2xl p-5" style={{ background: C.panelSolid, border: `1px solid ${C.border}` }}>
+                <AssetList
+                  assets={assets} hoveredId={hoveredId} setHoveredId={setHoveredId}
+                  filter={filter} setFilter={setFilter}
+                  setSelectedId={setSelectedId}
+                  searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                  matchedIds={matchedIds} />
+              </div>
+            </aside>
+          </div>
+
+          <div className="mx-auto px-6 pb-8 flex items-center justify-between"
+            style={{ maxWidth: 1500, fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 10, color: C.textDim, letterSpacing: 2 }}>
+            <span>BEACON / PORTFOLIO-MAP / V1.0</span>
+            <span>{new Date().toISOString().slice(0, 10).toUpperCase()} · {assets.length} LOCATIONS</span>
+          </div>
+
+          {selectedAsset ? (
+            <InfoCard
+              asset={selectedAsset}
+              fromCluster={viewCluster}
+              onBack={viewCluster ? () => setSelectedId(null) : null}
+              onClose={() => { setSelectedId(null); setSelectedClusterKey(null); }}
+              onUpdate={updateAsset}
+              onRemove={removeAsset} />
+          ) : viewCluster ? (
+            <ClusterList
+              cluster={viewCluster}
+              onSelectAsset={(id) => setSelectedId(id)}
+              onClose={() => setSelectedClusterKey(null)} />
+          ) : null}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<STSAssetMap />);
+    requestAnimationFrame(() => {
+      const b = document.getElementById('boot');
+      if (b) { b.classList.add('gone'); setTimeout(() => b.remove(), 500); }
+    });
+  </script>
+</body>
+</html>
