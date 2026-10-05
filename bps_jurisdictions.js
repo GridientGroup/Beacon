@@ -44,6 +44,14 @@ window.BPS_JURISDICTIONS = [
     penaltyType: 'per-ton',
     penaltyPerTon: 268,
     penaltyLabel: '$268/tCO₂e over cap, annually',
+    // LL97's own greenhouse gas coefficients for 2024–2029 (Admin. Code
+    // §28-320.3.1.1), not eGRID (bundle 125). eGRID's NY 0.212 kg/kWh
+    // understated electric emissions by about 27% against the law's
+    // 0.288962 t/MWh. Steam and fuel oil are counted when a building reports
+    // them (public LL84 data): steam 0.04493, #2 oil 0.07421 kg/kBtu (#4 oil
+    // 0.07529 is within 1.5%; oil is counted at the #2 figure). The 2030+
+    // column applies these same coefficients to the Period 2 limits.
+    emissionFactors: { kgPerKwh: 0.288962, kgPerTherm: 5.311, kgPerKbtuSteam: 0.04493, kgPerKbtuOil: 0.07421 },
     // The "up to 70% offset via RECs" figure that used to sit here had no
     // published basis — NYC DOB's LL97 REC policy and REC FAQ state no
     // percentage. What the rules DO say is narrower, so the field is now a
@@ -549,7 +557,7 @@ window.computeBpsExposure = function (accounts, btype, opts) {
           address: a.address || '',
           city: a.city || '',
           state: a.state || '',
-          sqft: 0, electricKwh: 0, gasTherms: 0,
+          sqft: 0, electricKwh: 0, gasTherms: 0, steamKbtu: 0, oilKbtu: 0,
           propertyType: '',
         };
       }
@@ -561,6 +569,11 @@ window.computeBpsExposure = function (accounts, btype, opts) {
       // judged against ITS OWN type's cap rather than one portfolio-wide type.
       var pt = a.property_type || a.propertyType || '';
       if (pt && !g.propertyType) g.propertyType = String(pt);
+      // Building-level steam / fuel oil (kBtu) when a record carries them, e.g.
+      // the pre-engagement report from public disclosure data. Counted once
+      // per building (largest value seen), not per meter row.
+      if (Number(a.steamKbtu) > g.steamKbtu) g.steamKbtu = Number(a.steamKbtu);
+      if (Number(a.oilKbtu) > g.oilKbtu) g.oilKbtu = Number(a.oilKbtu);
       var kind = _fuel(a);
       var u = Number(a.usage != null ? a.usage : a.annualUsage) || 0;
       if (kind === 'electric') g.electricKwh += u;
@@ -646,7 +659,13 @@ window.computeBpsExposure = function (accounts, btype, opts) {
       var fy = firstYearFor(j, l.sqft);
       if (fy != null && (minFirstYear == null || fy < minFirstYear)) minFirstYear = fy;
       var due = (fy == null) || fy <= THIS_YEAR;
-      var tonnes = ((directOnly ? 0 : l.electricKwh * co2Factor) + l.gasTherms * gasFactor) / 1000;
+      var ef = j.emissionFactors || {};
+      var steamT = (l.steamKbtu || 0) * (ef.kgPerKbtuSteam != null ? ef.kgPerKbtuSteam : 0);
+      var oilT   = (l.oilKbtu   || 0) * (ef.kgPerKbtuOil   != null ? ef.kgPerKbtuOil   : 0);
+      var tonnes = ((directOnly ? 0 : l.electricKwh * co2Factor + steamT) + l.gasTherms * gasFactor + oilT) / 1000;
+      // Steam/oil reported but this jurisdiction has no coefficient for it:
+      // the figure is incomplete and callers must say so.
+      var otherFuelUnpriced = ((l.steamKbtu > 0 && ef.kgPerKbtuSteam == null) || (l.oilKbtu > 0 && ef.kgPerKbtuOil == null));
       var eui = l.sqft > 0 ? Math.round((l.electricKwh * 3.412 + l.gasTherms * 100) / l.sqft) : 0;
       var li = {
         address: l.address, city: l.city, sqft: l.sqft,
@@ -656,6 +675,7 @@ window.computeBpsExposure = function (accounts, btype, opts) {
         currentDollars: 0, futureDollars: 0,
         basis: directOnly ? 'cap-direct' : 'cap',
         firstYear: fy, dueNow: due, dollarized: false, reason: '',
+        otherFuelUnpriced: otherFuelUnpriced, steamKbtu: l.steamKbtu || 0, oilKbtu: l.oilKbtu || 0,
       };
 
       if (j.penaltyType === 'per-ton') {

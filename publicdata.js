@@ -9,7 +9,17 @@
  *   window.BeaconPublicData.sourceFor(state, city)  -> source | null
  *   window.BeaconPublicData.search(src, address)    -> Promise<[record]>
  *
- * Sources (add more as entries in SOURCES):
+ * Sources (add more as entries in SOURCES). Each was checked against live
+ * rows on 2026-10-05 for field names and units:
+ *   Chicago Energy Benchmarking — data.cityofchicago.org xq83-jr8c.
+ *     electricity_use_kbtu kBtu (÷3.412 = kWh), natural_gas_use_kbtu kBtu
+ *     (÷100 = therms), district_steam_use_kbtu, all_other_fuel_use_kbtu,
+ *     site_eui_kbtu_sq_ft, gross_floor_area_buildings_sq_ft, data_year.
+ *   Seattle Building Energy Benchmarking — data.seattle.gov teqw-tu6e.
+ *     electricity_kwh kWh, naturalgas_therms therms, steamuse_kbtu,
+ *     siteeui_kbtu_sf, energystarscore, propertygfabuildings (excl. parking),
+ *     datayear.
+ * The NYC source:
  *   NYC Local Law 84 — NYC Open Data dataset 5zyy-y8am, "NYC Building Energy
  *   and Water Data Disclosure for Local Law 84 2023 to Present (Data for
  *   Calendar Year 2022-Present)". Read in the browser through the public
@@ -33,14 +43,39 @@
     cities: /^(new york|new york city|nyc|manhattan|brooklyn|bronx|the bronx|queens|staten island|long island city|flushing|astoria|jamaica)$/i,
     api: 'https://data.cityofnewyork.us/resource/5zyy-y8am.json',
     page: 'https://data.cityofnewyork.us/d/5zyy-y8am',
+    addr: 'address_1', year: 'report_year',
+    note: 'Buildings under 25,000 sq ft are not required to report.',
     map: mapNyc
+  }, {
+    key: 'chicago_bench',
+    label: 'Chicago Energy Benchmarking disclosure',
+    short: 'Chicago benchmarking',
+    state: 'IL',
+    cities: /^chicago$/i,
+    api: 'https://data.cityofchicago.org/resource/xq83-jr8c.json',
+    page: 'https://data.cityofchicago.org/d/xq83-jr8c',
+    addr: 'address', year: 'data_year',
+    note: 'Buildings under 50,000 sq ft are not required to report.',
+    map: mapChicago
+  }, {
+    key: 'seattle_bench',
+    label: 'Seattle Building Energy Benchmarking disclosure',
+    short: 'Seattle benchmarking',
+    state: 'WA',
+    cities: /^seattle$/i,
+    api: 'https://data.seattle.gov/resource/teqw-tu6e.json',
+    page: 'https://data.seattle.gov/d/teqw-tu6e',
+    addr: 'address', year: 'datayear',
+    note: 'Nonresidential and multifamily buildings under 20,000 sq ft are not required to report.',
+    map: mapSeattle
   }];
+  var COVERAGE = 'New York City, Chicago and Seattle';
 
   // Primary property type (ENERGY STAR names) → Beacon building type.
   var TYPE = {
     'office': 'office', 'financial office': 'office', 'multifamily housing': 'multifamily', 'hotel': 'hospitality',
     'retail store': 'retail', 'strip mall': 'retail', 'enclosed mall': 'retail', 'medical office': 'healthcare',
-    'hospital (general medical & surgical)': 'hospital', 'senior living community': 'senior_care', 'senior care community': 'senior_care',
+    'hospital (general medical & surgical)': 'hospital', 'other/specialty hospital': 'hospital', 'outpatient rehabilitation/physical therapy': 'healthcare', 'urgent care/clinic/other outpatient': 'healthcare', 'residence hall/dormitory': 'multifamily', 'wholesale club/supercenter': 'retail', 'senior living community': 'senior_care', 'senior care community': 'senior_care',
     'k-12 school': 'k12', 'college/university': 'college', 'supermarket/grocery store': 'supermarket',
     'non-refrigerated warehouse': 'warehouse', 'distribution center': 'warehouse', 'refrigerated warehouse': 'refrigerated_warehouse',
     'self-storage facility': 'self_storage', 'data center': 'data_center', 'laboratory': 'laboratory', 'bank branch': 'bank',
@@ -70,6 +105,35 @@
       oilKbtu: sum(r, ['fuel_oil_1_use_kbtu', 'fuel_oil_2_use_kbtu', 'fuel_oil_4_use_kbtu', 'fuel_oil_5_6_use_kbtu', 'diesel_2_use_kbtu', 'kerosene_use_kbtu', 'propane_use_kbtu']),
       ghgT: n(r.total_location_based_ghg),
       utility: r.electric_distribution_utility && r.electric_distribution_utility !== 'Not Available' ? r.electric_distribution_utility : ''
+    };
+  }
+
+  function na(v) { return v == null || v === 'Not Available' || v === 'NA' ? null : v; }
+  function mapChicago(r) {
+    var type = na(r.primary_property_type) || '';
+    var e = n(r.electricity_use_kbtu), g = n(r.natural_gas_use_kbtu);
+    return {
+      source: 'chicago_bench', year: n(r.data_year), propertyId: r.id || '', name: r.property_name || '',
+      address: r.address || '', zip: r.zip_code || '', borough: r.community_area || '', bbl: '',
+      type: type, btype: TYPE[String(type).toLowerCase()] || null,
+      sqft: n(r.gross_floor_area_buildings_sq_ft),
+      siteEui: n(r.site_eui_kbtu_sq_ft), wnEui: n(r.weather_normalized_site_eui_kbtu_sq_ft), essScore: n(r.energy_star_score),
+      kwh: e != null ? e / 3.412 : null, therms: g != null ? g / 100 : null,
+      steamKbtu: n(r.district_steam_use_kbtu), oilKbtu: n(r.all_other_fuel_use_kbtu),
+      ghgT: n(r.total_ghg_emissions_metric_tons_co2e), utility: ''
+    };
+  }
+  function mapSeattle(r) {
+    var type = na(r.epapropertytype) || na(r.largestpropertyusetype) || '';
+    return {
+      source: 'seattle_bench', year: n(r.datayear), propertyId: r.osebuildingid || '', name: r.buildingname || '',
+      address: r.address || '', zip: r.zipcode || '', borough: r.neighborhood || '', bbl: '',
+      type: type, btype: TYPE[String(type).toLowerCase()] || null,
+      sqft: n(r.propertygfabuildings) || n(r.propertygfatotal),
+      siteEui: n(r.siteeui_kbtu_sf), wnEui: n(r.siteeuiwn_kbtu_sf), essScore: n(r.energystarscore),
+      kwh: n(r.electricity_kwh), therms: n(r.naturalgas_therms),
+      steamKbtu: n(r.steamuse_kbtu), oilKbtu: null,
+      ghgT: n(r.totalghgemissions), utility: ''
     };
   }
 
@@ -117,8 +181,8 @@
     var alts = [a.core];
     var i = Number(a.core);
     if (i > 0 && i < ORD.length) alts.push(ORD[i]);
-    var where = '(' + alts.map(function (c) { return 'upper(address_1) like ' + q(a.num + ' %' + c + '%'); }).join(' OR ') + ')';
-    var url = src.api + '?$where=' + encodeURIComponent(where) + '&$order=' + encodeURIComponent('report_year DESC') + '&$limit=60';
+    var where = '(' + alts.map(function (c) { return 'upper(' + src.addr + ') like ' + q(a.num + ' %' + c + '%'); }).join(' OR ') + ')';
+    var url = src.api + '?$where=' + encodeURIComponent(where) + '&$order=' + encodeURIComponent(src.year + ' DESC') + '&$limit=60';
     return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) {
       if (!r.ok) throw new Error('The city data service answered ' + r.status + '.');
       return r.json();
@@ -137,5 +201,5 @@
     });
   }
 
-  window.BeaconPublicData = { sourceFor: sourceFor, search: search, SOURCES: SOURCES, _parse: parse, _map: mapNyc };
+  window.BeaconPublicData = { sourceFor: sourceFor, search: search, SOURCES: SOURCES, coverage: COVERAGE, _parse: parse, _map: mapNyc, _mapChicago: mapChicago, _mapSeattle: mapSeattle };
 })();

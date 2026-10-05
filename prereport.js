@@ -49,7 +49,8 @@
   // ── model ────────────────────────────────────────────────────────────────
   function accountsFrom(inp) {
     var base = { address: inp.address, city: bpsCity(inp), state: inp.state, sqft: inp.sqft || 0,
-                 property_type: inp.pub && inp.pub.type ? inp.pub.type : null, status: 'Prospect', expiration: inp.expiration || '', exp: inp.expiration || '' };
+                 property_type: inp.pub && inp.pub.type ? inp.pub.type : null,
+                 steamKbtu: inp.pub ? inp.pub.steamKbtu || 0 : 0, oilKbtu: inp.pub ? inp.pub.oilKbtu || 0 : 0, status: 'Prospect', expiration: inp.expiration || '', exp: inp.expiration || '' };
     var out = [];
     if (inp.elecUtility || inp.kwh || inp.elecRate) {
       out.push(Object.assign({}, base, {
@@ -112,6 +113,7 @@
         j: j, covered: inp.sqft ? inp.sqft >= j.threshold : null, threshold: j.threshold,
         bj: bj || null, hasUsage: hasUsage, next: next,
         firstYear: li ? li.firstYear : (bj ? bj.firstYear : null),
+        otherUnpriced: li ? !!li.otherFuelUnpriced : false,
         current: bj && hasUsage ? bj.currentExposure : null,
         future: bj && hasUsage ? bj.futureExposure : null,
         amountKind: bj ? bj.amountKind : (j.penaltyType === 'per-ton' ? 'computed' : j.penaltyType === 'tbd' ? 'none' : 'max-fine'),
@@ -213,7 +215,7 @@
     if (b.firstYear && b.firstYear > yr) parts.push('Money can first be charged for this building in ' + b.firstYear + '.');
     var big = '—', tone = null, unit = null;
     var of = b.otherFuel, ofShare = of && of.share != null ? of.share : 0;
-    if (b.hasUsage && ofShare > 0.10) {
+    if (b.hasUsage && b.otherUnpriced && ofShare > 0.10) {
       // Steam or oil is a large part of this building's energy and the BPS
       // math counts electricity and gas only: a $ figure would be wrong.
       parts.push(Math.round(ofShare * 100) + '% of this building’s reported energy is ' + (of.steam > 0 ? 'district steam' : 'fuel oil') + (of.steam > 0 && of.oil > 0 ? ' and fuel oil' : '') +
@@ -231,9 +233,12 @@
         parts.push((nd ? 'From ' + fmtDate(nd) + ' (' + (j.nextPhaseLabel || 'next phase') + ')' : (j.nextPhaseLabel || 'Next phase')) + ': ' + money(b.future) + ' ' + kind + '.');
         if (!b.current) { big = money(b.future); tone = 'bad'; unit = (nd ? 'from ' + nd.getFullYear() : 'next phase') + ' · ' + kind; }
       }
-      if (!b.current && !b.future) { big = '$0'; tone = 'good'; parts.push(b.computable === false ? 'No cap is published for this building type, so it could not be priced.' : 'At this usage the building is under its limits.'); }
+      if (!b.current && !b.future && b.computable === false) { big = 'Not priced'; tone = null; unit = 'no published limit for this type'; parts.push('No limit is published for this building type, so it could not be priced.'); }
+      else if (!b.current && !b.future) { big = '$0'; tone = 'good'; parts.push(b.computable === false ? 'No cap is published for this building type, so it could not be priced.' : 'At this usage the building is under its limits.'); }
     }
-    if (b.hasUsage && b.otherFuel && (b.otherFuel.steam > 0 || b.otherFuel.oil > 0)) {
+    if (b.hasUsage && !b.otherUnpriced && b.otherFuel && (b.otherFuel.steam > 0 || b.otherFuel.oil > 0)) {
+      parts.push('Counts the ' + [b.otherFuel.steam > 0 ? 'district steam' : '', b.otherFuel.oil > 0 ? 'fuel oil' : ''].filter(Boolean).join(' and ') + ' the building reports, at the ordinance’s own coefficients.');
+    } else if (b.hasUsage && b.otherUnpriced && b.otherFuel && (b.otherFuel.steam > 0 || b.otherFuel.oil > 0)) {
       parts.push('The building also reports ' + [b.otherFuel.steam > 0 ? Math.round(b.otherFuel.steam / 1000).toLocaleString() + ' MMBtu of district steam' : '',
         b.otherFuel.oil > 0 ? Math.round(b.otherFuel.oil / 1000).toLocaleString() + ' MMBtu of fuel oil' : ''].filter(Boolean).join(' and ') +
         ', which this calculation does not include, so the figure is a lower bound.');
@@ -251,6 +256,7 @@
     var verdict = e.pub ? (eui < b.medianEUI * 0.85 ? 'Better than median' : eui < b.medianEUI * 1.15 ? 'At median' : 'Above median') : b.euiVerdict;
     s += verdict + '.';
     if (e.city) s += ' Against ' + e.city.sampleCount.toLocaleString() + ' disclosed ' + e.city.city + ' buildings of this type (' + e.city.ordinance + ', ' + e.city.reportingYear + '), it sits at the ' + ordinal(e.city.customerPercentile) + ' percentile (lower uses less).';
+    if (e.pub && e.pub.type && !e.pub.btype) s += ' The city lists it as “' + e.pub.type + '”, which has no Beacon peer group, so it is compared as ' + b.btypeName.toLowerCase() + '; change Building type if another fits better.';
     if (e.pub) { if (e.pub.essScore != null) s += ' ENERGY STAR score ' + e.pub.essScore + ' as reported to the city (Portfolio Manager).'; }
     else if (b.essEligible && b.essScore != null) s += ' Estimated ENERGY STAR score ' + b.essScore + ' (estimate, not a certified score).';
     if (e.pub && ((e.pub.steamKbtu || 0) > 0 || (e.pub.oilKbtu || 0) > 0)) s += ' The city figure covers every fuel the building reports, including steam and oil.';
@@ -368,7 +374,7 @@
         '</div>' +
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">' +
           '<button type="button" data-pub-find style="background:transparent;color:var(--lime);border:1px solid rgba(173,213,64,0.35);border-radius:6px;padding:6px 12px;font-size:11.5px;cursor:pointer">Find in public energy data</button>' +
-          '<span data-pub-msg class="loc-card-srcline">Fills floor area and 12-month usage from the city’s benchmarking disclosure (New York City for now).</span>' +
+          '<span data-pub-msg class="loc-card-srcline">Fills floor area and 12-month usage from the city’s benchmarking disclosure (New York City, Chicago and Seattle for now).</span>' +
         '</div><div data-pub-list></div>' +
         '<div class="ic-lbl" style="margin-top:14px">Electric</div><div style="' + g + '">' +
           f('Utility', 'elecUtility', 'type="text" placeholder="Pepco"') +
@@ -422,19 +428,23 @@
     if (rec.btype) setVal(root, 'btype', rec.btype);
     var eu = root.querySelector('[data-pre="elecUtility"]');
     if (eu && !eu.value && rec.utility) eu.value = /consolidated edison/i.test(rec.utility) ? 'Con Ed' : rec.utility;
+    // The City of Chicago is entirely ComEd electric territory; Seattle is City Light (no retail choice).
+    if (eu && !eu.value && rec.source === 'chicago_bench') eu.value = 'ComEd';
+    if (eu && !eu.value && rec.source === 'seattle_bench') eu.value = 'Seattle City Light';
     _pub = Object.assign({}, rec, { short: src.short });
     root.querySelector('[data-pub-list]').innerHTML = '';
     pubBadge(root);
   }
+  var _pendingBuild = null;   // set when Build report started a lookup; runs the report once a building is picked
   function findPub(root) {
     var m = root.querySelector('[data-pub-msg]'), list = root.querySelector('[data-pub-list]');
     var inp = read(root), PD = window.BeaconPublicData;
     var src = PD && PD.sourceFor(inp.state, inp.city);
     list.innerHTML = '';
-    if (!src) { m.textContent = 'Public building energy data covers New York City for now (city: New York, Brooklyn, Bronx, Queens or Staten Island; state NY).'; m.style.color = '#f59e0b'; return; }
+    if (!src) { m.textContent = 'Public building energy data covers ' + ((PD && PD.coverage) || 'New York City') + ' for now.'; m.style.color = '#f59e0b'; return Promise.resolve(null); }
     m.textContent = 'Searching ' + src.label + '…'; m.style.color = '';
-    PD.search(src, inp.address).then(function (recs) {
-      if (!recs.length) { m.textContent = 'No building at that address in the ' + src.label + '. Buildings under 25,000 sq ft are not required to report. Try the address as the city writes it (e.g. 250 West 55 Street).'; m.style.color = '#f59e0b'; return; }
+    return PD.search(src, inp.address).then(function (recs) {
+      if (!recs.length) { m.textContent = 'No building at that address in the ' + src.label + '. ' + (src.note || '') + ' Try the address as the city writes it.'; m.style.color = '#f59e0b'; return recs; }
       m.textContent = recs.length + ' match' + (recs.length > 1 ? 'es' : '') + ' in the ' + src.label + '. Pick the building:'; m.style.color = '';
       list.innerHTML = '<div class="bm-rows" style="margin-top:8px">' + recs.map(function (r, i) {
         var fuels = [r.kwh != null ? Math.round(r.kwh).toLocaleString() + ' kWh' : '', r.therms != null ? Math.round(r.therms).toLocaleString() + ' therms' : '',
@@ -449,9 +459,21 @@
             (r.siteEui == null ? ' disabled title="No energy data reported"' : '') + '>Use</button></div>';
       }).join('') + '</div><div class="bm-basis">Source: <a class="lk" href="' + esc(src.page) + '" target="_blank" rel="noopener">' + esc(src.label) + '</a>. Figures are as the owner reported them to the city.</div>';
       Array.prototype.forEach.call(list.querySelectorAll('[data-pub-use]'), function (b) {
-        b.addEventListener('click', function () { usePub(root, recs[Number(b.getAttribute('data-pub-use'))], src); });
+        b.addEventListener('click', function () {
+          usePub(root, recs[Number(b.getAttribute('data-pub-use'))], src);
+          if (_pendingBuild) { var go = _pendingBuild; _pendingBuild = null; go(); }
+        });
       });
-    }, function (e) { m.textContent = 'Lookup failed: ' + ((e && e.message) || e); m.style.color = '#ef4444'; });
+      // One exact address match with energy data: use it without asking.
+      var exact = recs.filter(function (r) { return r.score === 1 && r.siteEui != null; });
+      if (_pendingBuild && recs.length === 1 && exact.length === 1) {
+        usePub(root, exact[0], src);
+        var go = _pendingBuild; _pendingBuild = null; go();
+      } else if (_pendingBuild) {
+        m.textContent = recs.length + ' possible buildings in the ' + src.label + '. Click Use on the right one and the report builds.'; m.style.color = '';
+      }
+      return recs;
+    }, function (e) { m.textContent = 'Lookup failed: ' + ((e && e.message) || e); m.style.color = '#ef4444'; _pendingBuild = null; return null; });
   }
 
   function read(root) {
@@ -468,7 +490,7 @@
     if (inp.elecRate != null && inp.elecRate < 1) return 'Electric rates are in cents per kWh (e.g. 8.9, not 0.089).';
     if (inp.elecRate != null && inp.elecRate >= 100) return 'Electric rate looks too high for cents per kWh.';
     if (inp.gasRate != null && inp.gasRate >= 20) return 'Gas rate is in $/therm (e.g. 0.65).';
-    if (!inp.elecUtility && !inp.gasUtility && !inp.kwh && !inp.therms) return 'Enter at least one meter (utility or usage).';
+    if (!inp.elecUtility && !inp.gasUtility && !inp.kwh && !inp.therms) return 'Enter the electric utility or 12 months of usage (or, in a city with public building data, click Find in public energy data).';
     return null;
   }
 
@@ -487,7 +509,18 @@
       if (el) el.addEventListener('input', function () { clearPub(root, 'Edited by hand, so the report no longer cites the public record.'); });
     });
     root.querySelector('[data-pre-run]').addEventListener('click', function () {
-      var inp = read(root), err = validate(inp);
+      var inp = read(root);
+      // No usage typed and the city publishes building data: look it up first.
+      var PD = window.BeaconPublicData;
+      if (!inp.pub && !inp.kwh && !inp.therms && inp.address && PD && PD.sourceFor(inp.state, inp.city)) {
+        msg.textContent = 'No usage entered, so looking the building up in public data first…'; msg.style.color = '';
+        _pendingBuild = function () { root.querySelector('[data-pre-run]').click(); };
+        findPub(root).then(function (recs) {
+          if (recs && !recs.length) { _pendingBuild = null; msg.textContent = 'Not in the public data. Enter 12 months of usage from the bills to build the report.'; msg.style.color = '#f59e0b'; }
+        });
+        return;
+      }
+      var err = validate(inp);
       if (err) { msg.textContent = err; msg.style.color = '#ef4444'; out.innerHTML = ''; _last = null; pr.disabled = true; pr.style.opacity = '.5'; return; }
       msg.textContent = 'Building…'; msg.style.color = '';
       build(inp).then(function (R) {
