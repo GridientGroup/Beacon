@@ -4015,6 +4015,8 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       // Function accepts both GET (?clientId=...) and POST { clientId },
       // but GET is cacheable at the CDN edge if we ever want to add that.
       var url = BEACON_SNAPSHOT_URL + '?clientId=' + encodeURIComponent(customerId);
+      // bundle 131: private link code, when the link carries one
+      try { var _share = new URLSearchParams(location.search).get('share'); if (_share) url += '&share=' + encodeURIComponent(_share); } catch (e) {}
 
       var resp, payload;
       try {
@@ -4043,6 +4045,10 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         return { ok: false, error: 'server', meta: null, customer: null };
       }
 
+      if (payload && payload.error === 'link_code_required') {
+        console.warn('[snapshot] this firm requires private link codes:', customerId);
+        return { ok: false, error: 'not_found', meta: null, customer: null };
+      }
       if (resp.status === 404 || (payload && payload.error === 'customer not found')) {
         console.warn('[snapshot] customer not found:', customerId);
         return { ok: false, error: 'not_found', meta: null, customer: null };
@@ -4052,7 +4058,9 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         return { ok: false, error: 'server', meta: null, customer: null };
       }
 
-      // Successful response. payload = { ok, customer, accounts, meta }.
+      // Successful response. payload = { ok, customer, accounts, meta, brand }.
+      // bundle 131: the client's firm brand (null fields = keep defaults)
+      try { if (payload.brand && window.BeaconBrand) window.BeaconBrand.apply(payload.brand); } catch (e) { console.warn('[brand] apply failed', e); }
       var customer = payload.customer || {};
       var accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
       // rev38: snapshot accounts arrive pre-shaped from the Edge Function but
@@ -5555,6 +5563,8 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <div id="pre-root" class="broker-only" style="margin-bottom:26px"></div>
   <!-- All-client Triggers + weekly email opt-in (bundle 126). Drawn by triggers.js. -->
   <div id="trga-root" class="broker-only" style="margin-bottom:26px"></div>
+  <div id="brand-root" class="broker-only" style="margin-bottom:26px"></div>
+  <div id="firms-root" class="broker-only" style="margin-bottom:26px;display:none"></div>
   <div class="adm-prog-hd">
     <div class="adm-prog-hd-l">
       <span class="adm-prog-eye">Internal · Broker overview</span>
@@ -6191,10 +6201,12 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
             if (qp.get('clientId')) {
               copyBtn.style.display = 'inline-flex';
             }
-            copyBtn.addEventListener('click', function(){
+            copyBtn.addEventListener('click', async function(){
               var url = new URL(window.location.href);
               url.searchParams.delete('broker');
               var clean = url.toString();
+              // bundle 131: include the client's private link code
+              try { if (window.BeaconBrand && window.BeaconBrand.shareUrl) clean = await window.BeaconBrand.shareUrl(url.searchParams.get('clientId')); } catch (e) {}
               function flash(ok, msg){
                 if (!uploadStatus) return;
                 uploadStatus.style.color = ok ? 'var(--lime)' : '#ef4444';
@@ -10493,6 +10505,8 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="prereport.js"></script>
   <script src="bills.js"></script>
   <script src="loadprofile.js"></script>
+  <script src="brand.js"></script>
+  <script src="firms.js"></script>
   <script src="market_intel.js"></script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
@@ -11081,6 +11095,12 @@ function _oppRequestCall(pid) {
 // Wire to Calendly / Cal.com / direct scheduler once the backend lands.
 function _oppScheduleVideo(pid) {
   // Routes to the Gridient cal.com booking page (cal.com swap).
+  // bundle 131: a white-labelled firm's clients email that firm instead.
+  var _b = window.BeaconBrand && window.BeaconBrand.current && window.BeaconBrand.current();
+  if (_b && (_b.short || _b.full)) {
+    if (_b.email) window.location.href = 'mailto:' + encodeURIComponent(_b.email) + '?subject=' + encodeURIComponent('Schedule a video call');
+    return;
+  }
   window.open('https://cal.com/gridientgroup', '_blank', 'noopener');
 }
 
