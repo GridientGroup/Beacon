@@ -632,7 +632,13 @@
       };
     });
 
-    var result = window.BeaconVPP.assessPortfolio(adapted);
+    // bundle 130: meters with interval data are valued from their own load
+    // (flexible kW = capacity tag or measured peak − measured base load, at the
+    // ISO's published capacity price). Only the rest stay directional.
+    var meas = window.BeaconLoad && window.BeaconLoad.measured ? window.BeaconLoad.measured(accounts) : null;
+    if (meas) adapted = adapted.filter(function (x, i) { return !meas.ids[accounts[i].id]; });
+    var result = adapted.length ? window.BeaconVPP.assessPortfolio(adapted) : null;
+    if (meas) return tileVPPMeasured(meas, result);
     if (!result || result.eligible_account_count === 0) return '';
 
     var isoList = Object.keys(result.by_iso).map(function (i) {
@@ -655,6 +661,34 @@
       html += '      <div class="bm-row"><span class="bm-row-lbl">' + _esc(i.iso) + '</span><span class="bm-row-val">' + fmtDollar(i.rev) + '/yr</span></div>';
     });
     html += '      <div class="bm-row"><span class="bm-row-lbl">To firm up</span><span class="bm-row-val" style="color:' + AMBER + '">interval data</span></div>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function tileVPPMeasured(meas, rest) {
+    var LIME = '#add540';
+    var isoList = Object.keys(meas.byIso).map(function (i) { return { iso: i, rev: meas.byIso[i] }; }).sort(function (a, b) { return b.rev - a.rev; }).slice(0, 3);
+    var html = '<div class="icard">';
+    html += '<div class="ic-lbl">⚡ Grid Services Revenue Opportunity</div>';
+    html += '<div class="ic-cols">';
+    html += '  <div class="ic-hero">';
+    html += '    <div class="bm-bignum" style="color:' + LIME + '">' + fmtDollar(meas.value) + '</div>';
+    html += '    <div class="ic-unit">per year · capacity value of flexible load</div>';
+    html += '    <div class="bm-verdict" style="background:rgba(173,213,64,0.12);color:' + LIME + ';border:1px solid rgba(173,213,64,0.35)">Measured · ' + meas.n + ' meter' + (meas.n === 1 ? '' : 's') + ' with interval data</div>';
+    html += '  </div>';
+    html += '  <div class="ic-data">';
+    html += '    <div class="bm-rows">';
+    html += '      <div class="bm-row"><span class="bm-row-lbl">Flexible load (measured)</span><span class="bm-row-val">' + fmtNum(meas.kw) + ' kW</span></div>';
+    isoList.forEach(function (i) {
+      html += '      <div class="bm-row"><span class="bm-row-lbl">' + _esc(i.iso) + '</span><span class="bm-row-val">' + fmtDollar(i.rev) + '/yr</span></div>';
+    });
+    if (rest && rest.eligible_account_count) {
+      html += '      <div class="bm-row"><span class="bm-row-lbl">Not yet measured</span><span class="bm-row-val" style="color:' + AMBER + '">' + rest.eligible_account_count + ' sites · ' + fmtDollar(rest.total_annual_revenue) + ' directional</span></div>';
+    }
+    html += '      <div class="bm-row"><span class="bm-row-lbl">Basis</span><span class="bm-row-val" style="text-align:right">tag or peak − base load × ISO capacity price · before aggregator share</span></div>';
     html += '    </div>';
     html += '  </div>';
     html += '</div>';

@@ -6619,6 +6619,20 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         <div class="icard" id="bil-list" style="grid-column:1/-1;min-width:0;display:none"></div>
       </div>
 
+      <!-- Load theme group (bundle 130). Broker-only; painted by
+           window.BeaconLoad.render() from renderBenchmarks(). Interval data,
+           load profile, capacity tags and demand-response value. -->
+      <div class="igrid-theme-hd" id="ld-hd" style="display:none">
+        <div class="igrid-theme-eye">Theme · Load</div>
+        <div class="igrid-theme-title">When does this building use power?</div>
+        <div class="igrid-theme-sub">interval data · peak demand · capacity tags · demand response</div>
+      </div>
+      <div class="igrid" id="ld-grid" style="display:none">
+        <div class="icard" id="ld-a" style="min-width:0"></div>
+        <div class="icard" id="ld-b" style="min-width:0"></div>
+        <div class="icard" id="ld-c" style="grid-column:1/-1;min-width:0"></div>
+      </div>
+
       <!-- Supply theme group (bundle 121). Broker-only; painted by
            window.BeaconPTC.renderPortfolio() from renderBenchmarks(). Hidden
            in client views. Uses the same matching as the location page's
@@ -10478,6 +10492,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="publicdata.js"></script>
   <script src="prereport.js"></script>
   <script src="bills.js"></script>
+  <script src="loadprofile.js"></script>
   <script src="market_intel.js"></script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
@@ -13070,6 +13085,9 @@ function renderBenchmarks(state, btype, sqft, spend, sqftSource){
   // bundle 127: monthly bills (async, broker-only)
   try { if (window.BeaconBills && window.BeaconBills.render) window.BeaconBills.render(); }
   catch (e) { console.warn('[bills] render failed:', e); }
+  // bundle 130: interval data + capacity tags (async, broker-only)
+  try { if (window.BeaconLoad && window.BeaconLoad.render) window.BeaconLoad.render(); }
+  catch (e) { console.warn('[load] render failed:', e); }
   if (!window.computeBenchmarks) return;
   sqftSource = sqftSource || 'reported';
   window._beaconSqftSource = sqftSource;
