@@ -19,6 +19,18 @@
  *     electricity_kwh kWh, naturalgas_therms therms, steamuse_kbtu,
  *     siteeui_kbtu_sf, energystarscore, propertygfabuildings (excl. parking),
  *     datayear.
+ *   DC Building Energy Benchmarks — DC GIS ArcGIS FeatureServer
+ *     Environment_Energy_WebMercator/45 (multi-year, REPORTINGYEAR).
+ *     ELECTRICITYUSE_GRID_KWH kWh, NATURALGASUSE_THERMS therms,
+ *     DISTRSTEAM_KBTU, FUELOILANDDIESELFUELUSEKBTU, SITEEUI_KBTU_FT,
+ *     ENERGYSTARSCORE, REPORTEDBUILDINGGROSSFLOORAREA ft², ADDRESSOFRECORD.
+ *   Philadelphia Large Building Energy Benchmarking 2024 — ArcGIS
+ *     properties_reported_2024. electric_use_kbtu kBtu (÷3.412),
+ *     natural_gas_use_kbtu (÷100), steam_use_kbtu, fuel_oil_02_use_kbtu,
+ *     site_eui_kbtuft2, energy_star_score, total_floor_area_bld_pk_ft2 (often
+ *     blank: then floor area = reported site energy ÷ site EUI, labelled).
+ *   Not added: Boston BERDO (its portal blocks automated reads, so the field
+ *   units could not be checked) and Denver (queryable data stops at 2021).
  * The NYC source:
  *   NYC Local Law 84 — NYC Open Data dataset 5zyy-y8am, "NYC Building Energy
  *   and Water Data Disclosure for Local Law 84 2023 to Present (Data for
@@ -69,7 +81,26 @@
     note: 'Nonresidential and multifamily buildings under 20,000 sq ft are not required to report.',
     map: mapSeattle
   }];
-  var COVERAGE = 'New York City, Chicago and Seattle';
+  SOURCES.push({
+    key: 'dc_bench', kind: 'arcgis',
+    label: 'DC Building Energy Benchmarking disclosure', short: 'DC benchmarking',
+    state: 'DC', cities: /^(washington|washington dc|washington, dc|dc|district of columbia)$/i,
+    api: 'https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/Environment_Energy_WebMercator/FeatureServer/45/query',
+    page: 'https://opendata.dc.gov/content/dde606b4546341cd9c0e3087a8b476e6',
+    addr: ['ADDRESSOFRECORD', 'REPORTEDADDRESS'], year: 'REPORTINGYEAR',
+    note: 'Private buildings under 25,000 sq ft are not required to report.',
+    map: mapDc
+  }, {
+    key: 'phl_bench', kind: 'arcgis',
+    label: 'Philadelphia Large Building Energy Benchmarking disclosure', short: 'Philadelphia benchmarking',
+    state: 'PA', cities: /^(philadelphia|philly)$/i,
+    api: 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/properties_reported_2024/FeatureServer/0/query',
+    page: 'https://opendataphilly.org/datasets/large-building-energy-benchmarking-data/',
+    addr: ['street_address'], year: 'data_year',
+    note: 'Buildings under 50,000 sq ft are not required to report. Reporting year 2024.',
+    map: mapPhl
+  });
+  var COVERAGE = 'New York City, Chicago, Seattle, Washington DC and Philadelphia';
 
   // Primary property type (ENERGY STAR names) → Beacon building type.
   var TYPE = {
@@ -137,13 +168,43 @@
     };
   }
 
+  function mapDc(r) {
+    var type = na(r.PRIMARYPROPERTYTYPE_SELFSELECT) || na(r.PRIMARYPROPERTYTYPE_EPACALC) || '';
+    return {
+      source: 'dc_bench', year: n(r.REPORTINGYEAR), propertyId: r.PMPROPERTYID || '', name: r.PROPERTYNAME || '',
+      address: r.ADDRESSOFRECORD || r.REPORTEDADDRESS || '', zip: r.POSTALCODE || '', borough: r.WARD ? 'Ward ' + r.WARD : '', bbl: r.SSL || '',
+      type: type, btype: TYPE[String(type).toLowerCase()] || null,
+      sqft: n(r.REPORTEDBUILDINGGROSSFLOORAREA) || n(r.TAXRECORDFLOORAREA),
+      siteEui: n(r.SITEEUI_KBTU_FT), wnEui: n(r.WEATHERNORMALZEDSITEEUI_KBTUFT), essScore: n(r.ENERGYSTARSCORE),
+      kwh: n(r.ELECTRICITYUSE_GRID_KWH), therms: n(r.NATURALGASUSE_THERMS),
+      steamKbtu: n(r.DISTRSTEAM_KBTU), oilKbtu: n(r.FUELOILANDDIESELFUELUSEKBTU),
+      ghgT: n(r.TOTGHGEMISSIONS_METRICTONSCO2E), utility: '', status: r.REPORTSTATUS || ''
+    };
+  }
+  function mapPhl(r) {
+    var type = na(r.primary_prop_type_epa_calc) || '';
+    var e = n(r.electric_use_kbtu), g = n(r.natural_gas_use_kbtu), st = n(r.steam_use_kbtu), oil = n(r.fuel_oil_02_use_kbtu), eui = n(r.site_eui_kbtuft2);
+    var area = n(r.total_floor_area_bld_pk_ft2), derived = false;
+    if (!area && eui) { var tot = (e || 0) + (g || 0) + (st || 0) + (oil || 0); if (tot > 0) { area = tot / eui; derived = true; } }
+    return {
+      source: 'phl_bench', year: n(r.data_year), propertyId: r.portfolio_manager_id ? String(r.portfolio_manager_id) : '', name: r.property_name || '',
+      address: r.street_address || '', zip: r.postal_code || '', borough: '', bbl: '',
+      type: type, btype: TYPE[String(type).toLowerCase()] || null,
+      sqft: area, sqftDerived: derived,
+      siteEui: eui, wnEui: n(r.weather_norm_site_eui_kbtuft2), essScore: n(r.energy_star_score),
+      kwh: e != null ? e / 3.412 : null, therms: g != null ? g / 100 : null,
+      steamKbtu: st, oilKbtu: oil, ghgT: n(r.total_ghg_emissions_mtco2e), utility: ''
+    };
+  }
+
   function sourceFor(state, city) {
     var st = String(state || '').toUpperCase(), c = String(city || '').trim();
     return SOURCES.filter(function (s) { return s.state === st && s.cities.test(c); })[0] || null;
   }
 
   // ── address normalising ─────────────────────────────────────────────────
-  var DIR = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NORTH: 'NORTH', SOUTH: 'SOUTH', EAST: 'EAST', WEST: 'WEST' };
+  var DIR = { N: 'NORTH', S: 'SOUTH', E: 'EAST', W: 'WEST', NORTH: 'NORTH', SOUTH: 'SOUTH', EAST: 'EAST', WEST: 'WEST',
+    NW: 'NW', NE: 'NE', SW: 'SW', SE: 'SE', NORTHWEST: 'NW', NORTHEAST: 'NE', SOUTHWEST: 'SW', SOUTHEAST: 'SE' };
   var SUF = { ST: 'STREET', STREET: 'STREET', AVE: 'AVENUE', AV: 'AVENUE', AVENUE: 'AVENUE', BLVD: 'BOULEVARD', BOULEVARD: 'BOULEVARD',
     RD: 'ROAD', ROAD: 'ROAD', PL: 'PLACE', PLACE: 'PLACE', DR: 'DRIVE', DRIVE: 'DRIVE', LN: 'LANE', LANE: 'LANE', PKWY: 'PARKWAY', PARKWAY: 'PARKWAY',
     SQ: 'SQUARE', SQUARE: 'SQUARE', PLZ: 'PLAZA', PLAZA: 'PLAZA', TER: 'TERRACE', TERRACE: 'TERRACE', CT: 'COURT', COURT: 'COURT', HWY: 'HIGHWAY', BROADWAY: 'BROADWAY' };
@@ -160,7 +221,7 @@
   function parse(addr) {
     var t = tokens(addr);
     var num = t.length && /^\d[\dA-Z-]*$/.test(t[0]) ? t.shift() : '';
-    var core = t.filter(function (w) { return !/^(NORTH|SOUTH|EAST|WEST)$/.test(w) && !SUF[w] || w === 'BROADWAY'; })[0] || t[0] || '';
+    var core = t.filter(function (w) { return !/^(NORTH|SOUTH|EAST|WEST|NW|NE|SW|SE)$/.test(w) && !SUF[w] || w === 'BROADWAY'; })[0] || t[0] || '';
     return { num: num, rest: t, core: core };
   }
   function score(a, rec) {
@@ -181,12 +242,22 @@
     var alts = [a.core];
     var i = Number(a.core);
     if (i > 0 && i < ORD.length) alts.push(ORD[i]);
-    var where = '(' + alts.map(function (c) { return 'upper(' + src.addr + ') like ' + q(a.num + ' %' + c + '%'); }).join(' OR ') + ')';
-    var url = src.api + '?$where=' + encodeURIComponent(where) + '&$order=' + encodeURIComponent(src.year + ' DESC') + '&$limit=60';
+    var fields = [].concat(src.addr), url;
+    var where = '(' + alts.map(function (c) {
+      return fields.map(function (f) { return (src.kind === 'arcgis' ? 'UPPER(' + f + ') LIKE ' : 'upper(' + f + ') like ') + q(a.num + ' %' + c + '%'); }).join(' OR ');
+    }).join(' OR ') + ')';
+    if (src.kind === 'arcgis') {
+      url = src.api + '?where=' + encodeURIComponent(where) + '&outFields=*&orderByFields=' + encodeURIComponent(src.year + ' DESC') +
+        '&resultRecordCount=60&returnGeometry=false&f=json';
+    } else {
+      url = src.api + '?$where=' + encodeURIComponent(where) + '&$order=' + encodeURIComponent(src.year + ' DESC') + '&$limit=60';
+    }
     return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) {
       if (!r.ok) throw new Error('The city data service answered ' + r.status + '.');
       return r.json();
-    }).then(function (rows) {
+    }).then(function (body) {
+      if (body && body.error) throw new Error('The city data service answered: ' + (body.error.message || 'error'));
+      var rows = src.kind === 'arcgis' ? ((body && body.features) || []).map(function (f) { return f.attributes || {}; }) : body;
       var best = {};
       (rows || []).map(src.map).forEach(function (rec) {
         rec.score = score(a, rec);

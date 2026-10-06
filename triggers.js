@@ -138,8 +138,18 @@
     classKey(name).replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).forEach(function (t) { if (t && !STOP[t]) w[t] = 1; });
     return w;
   }
+  // Class codes ("I" vs "II", "on" vs "off", "NEMA" vs "SEMA", "G1" vs "G2")
+  // name different classes even when every other word matches: any short or
+  // numbered word present in one name and not the other means no pair.
+  function codeClash(A, B) {
+    var k;
+    for (k in A) if (!B[k] && (k.length <= 4 || /\d/.test(k))) return true;
+    for (k in B) if (!A[k] && (k.length <= 4 || /\d/.test(k))) return true;
+    return false;
+  }
   function sim(a, b) {
     var A = words(a), B = words(b), inter = 0, uni = 0, k;
+    if (codeClash(A, B)) return 0;
     for (k in A) { uni++; if (B[k]) inter++; }
     for (k in B) if (!A[k]) uni++;
     return uni ? inter / uni : 0;
@@ -154,7 +164,12 @@
     same.forEach(function (r) { var k = String(r.effective_start || ''); perStart[k] = (perStart[k] || 0) + 1; });
     var cands = same.map(function (r) {
       var s = r === anchor ? 1.01 : sim(anchor.service_class, r.service_class);
-      if (s < 0.6) s = (r.effective_start && perStart[String(r.effective_start)] === 1) ? 0.5 : 0;
+      // Utility-wide fallback only for monthly gas supply charges, which are
+      // set for all sales classes at once (Peoples Gas). Electric classes are
+      // priced separately, so an unrelated class must never pair (bundle 126:
+      // Eversource G1 was being paired with G2/G3).
+      if (s < 0.6) s = (r.effective_start && perStart[String(r.effective_start)] === 1 && anchor.fuel === 'gas' &&
+        r.price_type === 'monthly_variable' && anchor.price_type === 'monthly_variable') ? 0.5 : 0;
       return { r: r, s: s };
     }).filter(function (c) { return c.s > 0; });
     function st(r) { return parseDate(r.effective_start); }
@@ -239,6 +254,9 @@
           var from = fromRow ? rowVal(fromRow) : null, to = toRow ? rowVal(toRow) : null;
           var pct = (from && to && from.v) ? (to.v - from.v) / from.v * 100 : null;
           if (pct != null && Math.abs(pct) < MIN_MOVE_PCT) return;
+          // An estimate and a published price are different kinds of number;
+          // a "move" between them is not a move (bundle 126: BGE showed +64%).
+          if (sub !== 'reset' && from && to && (from.kind === 'estimate' || to.kind === 'estimate')) return;
           var imp = to ? impact(to.v) : { yr: null, above: 0 };
           if (sub === 'changed' && from) {   // impact of the move itself, from the old price
             var yr = 0, n = 0;
@@ -580,5 +598,168 @@
     });
   }
 
-  window.BeaconTriggers = { render: render, build: build, _bpsDates: bpsDates, _classKey: classKey, _periods: periods, _sim: sim, last: function () { return _last; } };
+  // ── all clients (Admin tab, bundle 126) ────────────────────────────────
+  // Every client the signed-in broker can see (RLS decides: reps see their
+  // own customers, managers the whole org), run through the same build().
+  var ACCT_COLS = 'id, customer_id, sqft, type, utility, account_number, annual_usage, expiration, property_type,' +
+    ' supply_rate, supply_rate_unit, rate_effective, rate_source, tariff_code, ptc_utility, ptc_service_class,' +
+    ' lifecycle_status, locations ( address, suite, city, state, zip )';
+  function mapAcct(a) {
+    var loc = a.locations || {}, t = String(a.type || '').trim().toLowerCase();
+    var type = /^(electric|electricity|elec|e)$/.test(t) ? 'Electric' : /^(gas|natural gas|ng|g)$/.test(t) ? 'Gas' : (a.type || '');
+    var addr = loc.address || ''; if (loc.suite) addr = addr ? addr + ', ' + loc.suite : loc.suite;
+    var u = Number(a.annual_usage) || 0;
+    return { id: a.id, clientId: a.customer_id, address: addr, city: loc.city || '', state: loc.state || '', zip: loc.zip || '',
+      sqft: Number(a.sqft) || 0, type: type, accountType: type, utility: a.utility || '', account: a.account_number || '',
+      usage: u, annualUsage: u, expiration: a.expiration || '', exp: a.expiration || '', property_type: a.property_type || null,
+      supplyRate: a.supply_rate != null ? Number(a.supply_rate) : null, supplyRateUnit: a.supply_rate_unit || null,
+      rateCents: (a.supply_rate != null && a.supply_rate_unit === 'cents_per_kwh') ? Number(a.supply_rate) : null,
+      rateEffective: a.rate_effective || null, rateSource: a.rate_source || null, tariffCode: a.tariff_code || null,
+      ptcUtility: a.ptc_utility || null, ptcServiceClass: a.ptc_service_class || null };
+  }
+  function loadAllClients() {
+    var c = sb();
+    if (!c) return Promise.reject(new Error('Not connected.'));
+    return (c.auth ? c.auth.getSession() : Promise.resolve({ data: { session: true } })).then(function (s) {
+      if (!(s && s.data && s.data.session)) throw new Error('sign in to see your clients');
+      return Promise.all([
+      c.from('customers').select('id, name, type, is_demo').order('name'),
+      c.from('accounts').select(ACCT_COLS).eq('lifecycle_status', 'active')
+    ]).then(function (r) {
+      if (r[0].error) throw new Error(r[0].error.message);
+      if (r[1].error) throw new Error(r[1].error.message);
+      var by = {};
+      (r[1].data || []).forEach(function (a) { (by[a.customer_id] = by[a.customer_id] || []).push(mapAcct(a)); });
+      return (r[0].data || []).map(function (cu) { return { id: cu.id, name: cu.name, btype: cu.type || 'office', demo: cu.is_demo === true, accts: by[cu.id] || [] }; })
+        .filter(function (cu) { return cu.accts.length; });
+    });
+    });
+  }
+  function buildAll(clients, opts) {
+    var out = [], stats = { clients: clients.length, withEvents: 0 };
+    // one client at a time keeps the catalog reads cached per state
+    return clients.reduce(function (p, cu) {
+      return p.then(function () {
+        return build(cu.accts, Object.assign({ btype: cu.btype }, opts || {})).then(function (res) {
+          if (res.events.length) stats.withEvents++;
+          res.events.forEach(function (e) { e.client = cu.name; e.clientId = cu.id; out.push(e); });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      out.sort(function (x, y) { return x.date - y.date; });
+      return { events: out, stats: stats, asOf: today(opts), end: addDays(today(opts), WINDOW_DAYS) };
+    });
+  }
+  function plain(html) {
+    return String(html).replace(/<div[^>]*>/g, ' · ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  }
+  function describe(ev, t0) {
+    var kind = ev.kind === 'contract' ? 'Contract expires' : ev.kind === 'bps' ? 'BPS deadline' : (ev.sub === 'reset' ? 'Default rate resets' : (ev.pct > 0 ? 'Default rate up' : 'Default rate down'));
+    return { date: iso(ev.date), when: fmtDate(ev.date, t0), days: ev.days, kind: kind, client: ev.client || '',
+      where: ev.kind === 'contract' ? where(ev.a) : ev.kind === 'bps' ? ev.title + ' · ' + evWhere(ev) : ev.title,
+      detail: plain(detail(ev, t0)).replace(/ · source$| · ordinance$/, ''), compound: !!(ev.compound && ev.compound.length) };
+  }
+
+  var _allRes = null, _allFilter = 'all';
+  function paintAll(root, res) {
+    var t0 = res.asOf, ev = res.events, list = root.querySelector('[data-trga-list]');
+    var counts = { all: ev.length, contract: 0, rate: 0, bps: 0 };
+    ev.forEach(function (e) { counts[e.kind]++; });
+    var tabs = [['all', 'All'], ['contract', 'Contracts'], ['rate', 'Default rates'], ['bps', 'BPS']].map(function (t) {
+      var on = _allFilter === t[0];
+      return '<button type="button" data-trga-filter="' + t[0] + '" style="background:' + (on ? 'rgba(173,213,64,0.15)' : 'transparent') + ';color:' + (on ? 'var(--lime)' : 'var(--mu)') +
+        ';border:1px solid ' + (on ? 'rgba(173,213,64,0.35)' : 'var(--b1)') + ';border-radius:14px;padding:3px 10px;font-size:10.5px;cursor:pointer">' + t[1] + ' · ' + counts[t[0]] + '</button>';
+    }).join('');
+    var shown = ev.filter(function (e) { return _allFilter === 'all' || e.kind === _allFilter; });
+    list.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<div class="ic-lbl" style="margin:0">' + res.stats.withEvents + ' of ' + res.stats.clients + ' clients have something in the window · ' + fmtDate(t0, t0) + ' to ' + fmtDate(res.end, t0) + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + tabs + '<button type="button" data-trga-csv style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:14px;padding:3px 10px;font-size:10.5px;cursor:pointer">CSV ↓</button></div></div>' +
+      (shown.length ? shown.map(function (e) {
+        return '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05)">' +
+          '<div style="flex:0 0 74px"><div class="bm-row-val" style="font-size:14px">' + fmtDate(e.date, t0) + '</div><div class="bm-row-lbl" style="font-size:10px">' + whenTxt(e, t0) + '</div></div>' +
+          '<div style="flex:0 0 112px;padding-top:1px">' + pill(e) + (e.kind === 'contract' && e.compound.length ? '<div style="margin-top:4px"><span class="loc-pill amber">+ Rate move</span></div>' : '') + '</div>' +
+          '<div style="flex:1 1 240px;min-width:0"><div style="font-size:12px;color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+            '<a href="?clientId=' + encodeURIComponent(e.clientId) + '" class="lk" style="color:var(--lime);text-decoration:none" title="Open this client">' + esc(e.client) + '</a> · ' +
+            esc(e.kind === 'contract' ? where(e.a) : e.kind === 'bps' ? e.title + ' · ' + evWhere(e) : e.title) + '</div>' +
+          '<div class="loc-card-sub" style="font-size:11px;overflow-wrap:anywhere">' + detail(e, t0) + '</div></div></div>';
+      }).join('') : '<div class="loc-card-sub" style="padding:10px 0">Nothing in this category in the next 120 days across your clients.</div>');
+    Array.prototype.forEach.call(list.querySelectorAll('[data-trga-filter]'), function (b) {
+      b.addEventListener('click', function () { _allFilter = b.getAttribute('data-trga-filter'); paintAll(root, res); });
+    });
+    list.querySelector('[data-trga-csv]').addEventListener('click', function () {
+      var lines = [['Date', 'Days', 'Client', 'Type', 'Location / utility', 'Detail']];
+      res.events.forEach(function (e) { var d = describe(e, t0); lines.push([d.date, d.days, d.client, d.kind, d.where, d.detail]); });
+      var text = lines.map(function (r) { return r.map(function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+      a.download = 'beacon_triggers_all_clients_' + iso(t0) + '.csv'; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    });
+  }
+
+  // Weekly email: opt-in toggle, preview, last status.
+  var FN = 'https://wnzpoacrdxrddwptpeiz.supabase.co/functions/v1/triggers-digest';
+  function digestUi(root) {
+    var c = sb(), box = root.querySelector('[data-trga-digest]');
+    if (!c || !c.auth) return;
+    c.auth.getSession().then(function (r) {
+      var sess = r && r.data && r.data.session;
+      if (!sess) { box.innerHTML = '<span class="loc-card-srcline">Sign in to turn on the weekly email.</span>'; return; }
+      var uid = sess.user.id;
+      Promise.all([
+        c.from('trigger_digest_prefs').select('enabled').eq('user_id', uid).maybeSingle(),
+        c.from('trigger_digests').select('week_of, event_count, send_status, sent_at, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1)
+      ]).then(function (q) {
+        var on = !!(q[0].data && q[0].data.enabled), last = q[1].data && q[1].data[0];
+        box.innerHTML = '<label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-size:12px;color:#fff">' +
+            '<input type="checkbox" data-trga-optin' + (on ? ' checked' : '') + '> Email me this list every Monday morning</label>' +
+          ' <button type="button" data-trga-preview style="margin-left:10px;background:transparent;color:var(--lime);border:1px solid rgba(173,213,64,0.35);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">Preview this week’s email</button>' +
+          '<div class="loc-card-srcline" data-trga-dmsg style="margin-top:6px">' + (last ? 'Last digest: week of ' + esc(last.week_of) + ' · ' + last.event_count + ' items · ' + esc(last.send_status || '') : 'Goes to the email you sign in with. Sent from the server, so it arrives even when Beacon is closed.') + '</div>';
+        box.querySelector('[data-trga-optin]').addEventListener('change', function (ev) {
+          var m = box.querySelector('[data-trga-dmsg]');
+          c.from('trigger_digest_prefs').upsert({ user_id: uid, enabled: ev.target.checked, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).then(function (u) {
+            m.textContent = u.error ? 'Not saved: ' + u.error.message : (ev.target.checked ? 'On. The first email goes out next Monday.' : 'Off.');
+          });
+        });
+        box.querySelector('[data-trga-preview]').addEventListener('click', function () {
+          var m = box.querySelector('[data-trga-dmsg]'), w = window.open('', '_blank');
+          m.textContent = 'Building the preview…';
+          fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token }, body: JSON.stringify({ mode: 'preview' }) })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              if (j.error) throw new Error(j.error);
+              m.textContent = 'Preview: ' + j.event_count + ' items. ' + (j.send_status || '');
+              if (w) { w.document.open(); w.document.write(j.html); w.document.close(); }
+            }).catch(function (e) { m.textContent = 'Preview failed: ' + e.message; if (w) w.close(); });
+        });
+      });
+    });
+  }
+
+  function mountAll() {
+    var root = document.getElementById('trga-root');
+    if (!root || root.getAttribute('data-mounted')) return;
+    root.setAttribute('data-mounted', '1');
+    root.innerHTML = '<div class="igrid-theme-hd" style="margin-top:0"><div class="igrid-theme-eye">Triggers · All clients · Brokers only</div>' +
+        '<div class="igrid-theme-title">Next 120 days across every client</div>' +
+        '<div class="igrid-theme-sub">contract expirations · default-rate moves · BPS deadlines, for every client you can see</div></div>' +
+      '<div class="icard" style="min-width:0"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+        '<button type="button" data-trga-load style="background:#add540;color:#0a0e1a;border:0;border-radius:6px;padding:7px 14px;font-weight:700;font-size:12px;cursor:pointer">Load all clients</button>' +
+        '<span class="loc-card-srcline" data-trga-msg>Runs the same Triggers check as each client’s Intelligence tab.</span></div>' +
+        '<div data-trga-digest style="margin-top:10px"></div><div data-trga-list style="margin-top:10px"></div></div>';
+    var msg = root.querySelector('[data-trga-msg]');
+    root.querySelector('[data-trga-load]').addEventListener('click', function () {
+      msg.textContent = 'Loading clients…';
+      loadAllClients().then(function (clients) {
+        msg.textContent = 'Checking ' + clients.length + ' clients…';
+        return buildAll(clients);
+      }).then(function (res) { _allRes = res; msg.textContent = res.events.length + ' items across ' + res.stats.clients + ' clients.'; paintAll(root, res); },
+        function (e) { msg.textContent = 'Could not load: ' + e.message; msg.style.color = '#ef4444'; });
+    });
+    digestUi(root);
+  }
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll); else setTimeout(mountAll, 0);
+  }
+
+  window.BeaconTriggers = { render: render, build: build, buildAll: buildAll, mapAcct: mapAcct, describe: describe, mountAll: mountAll,
+    _bpsDates: bpsDates, _classKey: classKey, _periods: periods, _sim: sim, last: function () { return _last; } };
 })();

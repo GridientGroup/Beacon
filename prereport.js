@@ -269,7 +269,9 @@
     var p = inp.pub; if (!p) return '';
     var src = (window.BeaconPublicData && window.BeaconPublicData.SOURCES || []).filter(function (s) { return s.key === p.source; })[0];
     return 'Energy use and floor area from the ' + (src ? src.label : 'public disclosure') + ', calendar year ' + p.year +
-      (p.propertyId ? ' (property ' + p.propertyId + (p.bbl ? ', BBL ' + p.bbl : '') + ')' : '') + '.';
+      (p.propertyId ? ' (property ' + p.propertyId + (p.bbl ? (p.source === 'dc_bench' ? ', SSL ' : ', BBL ') + p.bbl : '') + ')' : '') + '.' +
+      (p.sqftDerived ? ' The city record has no floor area, so it is derived from reported energy ÷ site EUI.' : '') +
+      (p.status && /incomplete/i.test(p.status) ? ' The city lists this filing as incomplete.' : '');
   }
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
@@ -364,6 +366,13 @@
         '<div class="igrid-theme-title">Pre-engagement report</div>' +
         '<div class="igrid-theme-sub">one building · supply vs price to compare · contract · BPS exposure · energy use vs peers · next 120 days</div></div>' +
       '<div class="icard" style="min-width:0">' +
+        '<div data-sv-row style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">' +
+          '<span class="ic-lbl" style="margin:0">Saved reports</span>' +
+          '<select data-sv-list style="' + INP + ';width:auto;min-width:260px;max-width:100%"><option value="">—</option></select>' +
+          '<button type="button" data-sv-load style="background:transparent;color:var(--lime);border:1px solid rgba(173,213,64,0.35);border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer">Open</button>' +
+          '<button type="button" data-sv-del style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer">Delete</button>' +
+          '<span data-sv-msg class="loc-card-srcline"></span>' +
+        '</div>' +
         '<div class="ic-lbl">Building</div><div style="' + g + '">' +
           f('Prospect (company)', 'prospect', 'type="text" placeholder="e.g. Harbor Point Properties"') +
           f('Street address', 'address', 'type="text" placeholder="1200 K St NW"') +
@@ -374,7 +383,7 @@
         '</div>' +
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">' +
           '<button type="button" data-pub-find style="background:transparent;color:var(--lime);border:1px solid rgba(173,213,64,0.35);border-radius:6px;padding:6px 12px;font-size:11.5px;cursor:pointer">Find in public energy data</button>' +
-          '<span data-pub-msg class="loc-card-srcline">Fills floor area and 12-month usage from the city’s benchmarking disclosure (New York City, Chicago and Seattle for now).</span>' +
+          '<span data-pub-msg class="loc-card-srcline">Fills floor area and 12-month usage from the city’s benchmarking disclosure (New York City, Chicago, Seattle, Washington DC and Philadelphia for now).</span>' +
         '</div><div data-pub-list></div>' +
         '<div class="ic-lbl" style="margin-top:14px">Electric</div><div style="' + g + '">' +
           f('Utility', 'elecUtility', 'type="text" placeholder="Pepco"') +
@@ -396,9 +405,10 @@
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">' +
           '<button type="button" data-pre-run style="background:#add540;color:#0a0e1a;border:0;border-radius:6px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer">Build report</button>' +
           '<button type="button" data-pre-print disabled style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;opacity:.5">Save as PDF / print</button>' +
+          '<button type="button" data-sv-save disabled style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;opacity:.5">Save report</button>' +
           '<span data-pre-msg class="loc-card-srcline"></span>' +
         '</div>' +
-        '<div class="bm-basis">Usage comes from the prospect’s bills or the utility’s usage history. Anything left blank is left out of the report, never estimated. Nothing here is saved.</div>' +
+        '<div class="bm-basis">Usage comes from the prospect’s bills, the utility’s usage history, or the city’s public data. Anything left blank is left out of the report, never estimated. Save report keeps the inputs so the report can be rebuilt later with current prices; saved reports are shared with your organization’s brokers.</div>' +
       '</div><div data-pre-out></div>';
   }
 
@@ -431,6 +441,9 @@
     // The City of Chicago is entirely ComEd electric territory; Seattle is City Light (no retail choice).
     if (eu && !eu.value && rec.source === 'chicago_bench') eu.value = 'ComEd';
     if (eu && !eu.value && rec.source === 'seattle_bench') eu.value = 'Seattle City Light';
+    // DC is entirely Pepco electric; the City of Philadelphia is entirely PECO electric (gas is PGW).
+    if (eu && !eu.value && rec.source === 'dc_bench') eu.value = 'Pepco';
+    if (eu && !eu.value && rec.source === 'phl_bench') eu.value = 'PECO';
     _pub = Object.assign({}, rec, { short: src.short });
     root.querySelector('[data-pub-list]').innerHTML = '';
     pubBadge(root);
@@ -454,7 +467,7 @@
             (r.name && r.name.toUpperCase() !== r.address.toUpperCase() ? ' · ' + esc(r.name) : '') + '<br>' +
             esc(r.type || 'type not given') + ' · ' + (r.sqft ? Math.round(r.sqft).toLocaleString() + ' sq ft' : 'area not given') +
             ' · ' + (r.siteEui != null ? 'EUI ' + r.siteEui : 'no energy data') + (r.essScore != null ? ' · ENERGY STAR ' + r.essScore : '') +
-            ' · CY' + esc(r.year) + (fuels ? ' · ' + esc(fuels) : '') + '</span>' +
+            ' · CY' + esc(r.year) + (fuels ? ' · ' + esc(fuels) : '') + (r.status && /incomplete/i.test(r.status) ? ' · filing incomplete' : '') + '</span>' +
           '<button type="button" data-pub-use="' + i + '" style="background:#add540;color:#0a0e1a;border:0;border-radius:6px;padding:5px 11px;font-weight:700;font-size:11px;cursor:pointer"' +
             (r.siteEui == null ? ' disabled title="No energy data reported"' : '') + '>Use</button></div>';
       }).join('') + '</div><div class="bm-basis">Source: <a class="lk" href="' + esc(src.page) + '" target="_blank" rel="noopener">' + esc(src.label) + '</a>. Figures are as the owner reported them to the city.</div>';
@@ -494,6 +507,74 @@
     return null;
   }
 
+  // ── saved reports (bundle 126) ──────────────────────────────────────────
+  function sbc() { return window._beaconSb || window.sb || null; }
+  var _saved = [], _svOk = false;
+  function svMsg(root, t, bad) { var m = root.querySelector('[data-sv-msg]'); m.textContent = t || ''; m.style.color = bad ? '#ef4444' : ''; }
+  function refreshSaved(root, selectId) {
+    var c = sbc(), sel = root.querySelector('[data-sv-list]');
+    if (!c || !c.auth) { root.querySelector('[data-sv-row]').style.display = 'none'; return Promise.resolve(); }
+    return c.auth.getSession().then(function (r) {
+      if (!(r && r.data && r.data.session)) { _svOk = false; sel.disabled = true; svMsg(root, 'Sign in to save and reopen reports.'); return; }
+      _svOk = true;
+      return c.from('prereports').select('id, prospect, address, city, state, updated_at, created_by').order('updated_at', { ascending: false }).limit(100).then(function (q) {
+        if (q.error) { svMsg(root, 'Saved reports unavailable: ' + q.error.message, true); return; }
+        _saved = q.data || [];
+        sel.innerHTML = '<option value="">' + (_saved.length ? _saved.length + ' saved — pick one' : 'None saved yet') + '</option>' + _saved.map(function (x) {
+          return '<option value="' + esc(x.id) + '"' + (x.id === selectId ? ' selected' : '') + '>' + esc((x.prospect ? x.prospect + ' · ' : '') + x.address + (x.city ? ', ' + x.city : '') + ' ' + (x.state || '') + ' · ' + String(x.updated_at).slice(0, 10)) + '</option>';
+        }).join('');
+      });
+    });
+  }
+  function summaryOf(R) {
+    var sup = R.supply.filter(function (x) { return x.yr != null; }).map(function (x) { return { fuel: x.a.type, yr: Math.round(x.yr) }; });
+    return { asOf: R.asOf.toISOString().slice(0, 10), events: R.events.length, eui: R.eui && R.eui.state === 'ok' ? (R.eui.pub ? R.eui.pub.siteEui : R.eui.b.actualEUI) : null,
+      supply: sup, bps: R.bps.map(function (b) { return { name: b.j.ordinance, current: b.current, future: b.future }; }) };
+  }
+  function saveReport(root) {
+    var c = sbc(); if (!c || !_last) return;
+    var inp = _last.input, id = root.getAttribute('data-sv-current') || null;
+    var row = { prospect: inp.prospect || null, address: inp.address, city: inp.city || null, state: inp.state || null,
+      input: inp, summary: summaryOf(_last), updated_at: new Date().toISOString() };
+    svMsg(root, 'Saving…');
+    var q = id ? c.from('prereports').update(row).eq('id', id).select('id') : c.from('prereports').insert(row).select('id');
+    q.then(function (r) {
+      if (r.error || !r.data || !r.data.length) { svMsg(root, 'Not saved: ' + ((r.error && r.error.message) || 'no permission'), true); return; }
+      root.setAttribute('data-sv-current', r.data[0].id);
+      svMsg(root, id ? 'Updated.' : 'Saved.');
+      refreshSaved(root, r.data[0].id);
+    });
+  }
+  function openSaved(root) {
+    var c = sbc(), id = root.querySelector('[data-sv-list]').value;
+    if (!c || !id) return;
+    svMsg(root, 'Opening…');
+    c.from('prereports').select('id, input').eq('id', id).maybeSingle().then(function (r) {
+      if (r.error || !r.data) { svMsg(root, 'Could not open: ' + ((r.error && r.error.message) || 'not found'), true); return; }
+      var inp = r.data.input || {};
+      Array.prototype.forEach.call(root.querySelectorAll('[data-pre]'), function (el) {
+        var k = el.getAttribute('data-pre'), v = inp[k];
+        el.value = v == null ? '' : (typeof v === 'number' && k !== 'elecRate' && k !== 'gasRate' ? Math.round(v).toLocaleString() : v);
+      });
+      _pub = inp.pub || null;
+      if (_pub) pubBadge(root); else { var m = root.querySelector('[data-pub-msg]'); m.textContent = ''; }
+      root.setAttribute('data-sv-current', id);
+      svMsg(root, 'Opened. Rebuilt with today’s prices; Save report updates it.');
+      root.querySelector('[data-pre-run]').click();
+    });
+  }
+  function deleteSaved(root) {
+    var c = sbc(), sel = root.querySelector('[data-sv-list]'), id = sel.value;
+    if (!c || !id) return;
+    var x = _saved.filter(function (s) { return s.id === id; })[0];
+    if (!window.confirm('Delete the saved report for ' + (x ? (x.prospect || x.address) : 'this building') + '?')) return;
+    c.from('prereports').delete().eq('id', id).select('id').then(function (r) {
+      if (r.error || !r.data || !r.data.length) { svMsg(root, 'Not deleted: ' + ((r.error && r.error.message) || 'only the author or a manager can delete'), true); return; }
+      if (root.getAttribute('data-sv-current') === id) root.removeAttribute('data-sv-current');
+      svMsg(root, 'Deleted.'); refreshSaved(root);
+    });
+  }
+
   var _last = null;
   function mount() {
     var root = document.getElementById('pre-root');
@@ -502,6 +583,11 @@
     root.innerHTML = formHtml();
     var msg = root.querySelector('[data-pre-msg]'), out = root.querySelector('[data-pre-out]'), pr = root.querySelector('[data-pre-print]');
     root.querySelector('[data-pub-find]').addEventListener('click', function () { findPub(root); });
+    var sv = root.querySelector('[data-sv-save]');
+    sv.addEventListener('click', function () { saveReport(root); });
+    root.querySelector('[data-sv-load]').addEventListener('click', function () { openSaved(root); });
+    root.querySelector('[data-sv-del]').addEventListener('click', function () { deleteSaved(root); });
+    refreshSaved(root);
     // Typing over a field that came from the public record detaches it, so the
     // report never labels the broker's own numbers as the city's.
     PUB_FIELDS.forEach(function (k) {
@@ -528,6 +614,7 @@
         out.innerHTML = preview(R);
         msg.textContent = 'Ready. Check the preview, then save as PDF.';
         pr.disabled = false; pr.style.opacity = ''; pr.style.color = 'var(--lime)'; pr.style.borderColor = 'rgba(173,213,64,0.35)';
+        if (_svOk) sv.disabled = false; sv.style.opacity = _svOk ? '' : '.5'; sv.style.color = 'var(--lime)'; sv.style.borderColor = 'rgba(173,213,64,0.35)';
       }, function (e) { console.warn('[prereport] build failed', e); msg.textContent = 'Report could not be built (see console).'; msg.style.color = '#ef4444'; });
     });
     pr.addEventListener('click', function () {
