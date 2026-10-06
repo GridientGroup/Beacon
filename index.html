@@ -3388,7 +3388,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <button class="vbtn" data-view="services">Services &amp; Programs</button>
     <button class="vbtn" data-view="opportunities">Recommendations</button>
     <button class="vbtn" data-view="intelligence">Intelligence</button>
-    <button class="vbtn" data-view="market">Markets</button>
+    <button class="vbtn broker-only" data-view="market">Trading Desk</button>
     <button class="vbtn" data-view="scorecard">Footprint</button>
   </div>
   <div class="nav-row-2 broker-only">
@@ -7434,19 +7434,22 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     </div>
 
     
-    <div class="sec" id="sec-market">
+    <div class="sec broker-only" id="sec-market">
       <div class="sec-hd">
-        <div><div class="sec-eye">Energy Market Update</div><div class="sec-title">Market Intelligence &amp; Outlook</div></div>
-        <div class="sec-ct">Refreshed every 15 minutes</div>
+        <div><div class="sec-eye">Trading Desk · broker only</div><div class="sec-title">Markets &amp; Your Book</div></div>
+        <div class="sec-ct">Clients don’t see this tab</div>
       </div>
 
+      <!-- bundle 134: Trading Desk (trading_desk.js) -->
+      <div id="desk-root" style="margin-bottom:6px"></div>
+
       <!-- Data-as-of timestamp + source attribution -->
-      <div class="mi-as-of-bar">
+      <div class="mi-as-of-bar" style="display:none">
         <span id="mi-as-of">Loading market data…</span>
       </div>
 
       <!-- Top stat strip — 4 portfolio-wide market KPIs -->
-      <div id="mi-summary" class="mi-summary-strip"></div>
+      <div id="mi-summary" class="mi-summary-strip" style="display:none"></div>
 
       <!-- Panel 1 — Natural Gas Storage -->
       <div class="mi-panel">
@@ -7472,16 +7475,6 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
           <div class="mi-panel-chart" id="mi-hh-chart"></div>
         </div>
         <div class="mi-insight" id="mi-hh-insight"></div>
-      </div>
-
-      <!-- Panel 3 — ISO Wholesale Snapshot -->
-      <div class="mi-panel">
-        <div class="mi-panel-hd">
-          <div class="mi-panel-eye">🔌 Wholesale Electricity</div>
-          <div class="mi-panel-title">Current-Month Average LMP by ISO</div>
-        </div>
-        <div class="mi-iso-tbl-wrap" id="mi-iso-table"></div>
-        <div class="mi-insight" id="mi-iso-insight"></div>
       </div>
 
       <!-- Panel 4 — STEO Forecast -->
@@ -10508,6 +10501,8 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="brand.js"></script>
   <script src="firms.js"></script>
   <script src="market_intel.js"></script>
+  <script src="trading_desk.js"></script>
+  <script src="client_gate.js"></script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
        emissions, weather normalization, VPP opportunity, bill anomaly detection.
@@ -19260,6 +19255,8 @@ function fpGoTo(view, anchorId){
 window.fpGoTo = fpGoTo;
 
 function showView(name){
+  // bundle 134: the Trading Desk (market) tab is broker-only.
+  if (name === "market" && document.body.classList.contains('client-view')) name = "overview";
   document.querySelectorAll(".vbtn").forEach(b=>b.classList.toggle("on", b.dataset.view===name));
   document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("on", s.id==="sec-"+name));
   const ap=document.getElementById("admin-panel");
@@ -19291,6 +19288,9 @@ function showView(name){
   // Re-render market intelligence whenever the Market tab opens — fresh
   // pull from commodity_snapshots every time so spot prices, forward
   // curve, storage band, and ISO snapshots reflect the latest fetcher cycle.
+  if (name === "market" && window.BeaconDesk) {
+    try { window.BeaconDesk.load(); } catch(e){ console.error('[desk] load failed:', e); }
+  }
   if (name === "market" && typeof renderMarketIntel === 'function') {
     try { renderMarketIntel(); } catch(e){ console.error('[market] render failed:', e); }
   }
@@ -20885,7 +20885,7 @@ function _marketPages(d, market, basePage){
           '<thead><tr><th style="width:42%">Grid Operator</th><th style="text-align:right">Median LMP</th><th style="text-align:right">Average</th><th style="text-align:right">Window</th></tr></thead>' +
           '<tbody>' + isoRows + '</tbody>' +
         '</table>' +
-        '<div class="rep2-p" style="font-size:10.5px;color:#5a6573;margin-top:-4px">Locational marginal price, $/MWh, hub level, trailing ~30 days. Median is the more stable read; average shown for context.</div>'
+        '<div class="rep2-p" style="font-size:10.5px;color:#5a6573;margin-top:-4px">Locational marginal price, $/MWh, real-time, at each operator’s benchmark hub (PJM Western Hub, NYISO Zone J, ISO-NE Internal Hub, MISO Indiana Hub, ERCOT North Hub, CAISO SP15), trailing 30 days. Median is the more stable read; average shown for context.</div>'
       : '<div class="rep2-p">Wholesale ISO price data is accumulating and will populate in the next refresh cycle.</div>') +
     '<div class="rep2-h3" style="margin-top:22px">Commercial retail price outlook</div>' +
     '<div class="rep2-p">' + (ceVerdict || 'EIA commercial price forecast accumulating.') +

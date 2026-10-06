@@ -24,8 +24,8 @@
 
   // ─── Series IDs in commodity_snapshots ──────────────────────────────
   const SERIES = {
-    HENRY_HUB_SPOT:   'eia.henry_hub.daily_spot',
-    US_STORAGE:       'eia.us_lower48.working_gas_storage',
+    HENRY_HUB_SPOT:   'RNGWHHD',                       // bundle 134: live EIA series (old eia.henry_hub.daily_spot stopped 2026-06-01)
+    US_STORAGE:       'NW2_EPG0_SWO_R48_BCF',          // bundle 134: live EIA series (old copy stopped 2026-05-29)
     // Forward curve series — v2 fetcher writes RNGC1 through RNGC24
     FWD_PREFIX:       'eia.henry_hub.fwd_m',          // + '01' through '24'
     // STEO series — v2 fetcher writes 2 headline series (slugified EIA codes)
@@ -738,7 +738,9 @@
           fetchSeries(SERIES.STEO_HH_FORECAST),
           fetchSeries(SERIES.US_STORAGE, { limit: 320 }),
           fetchSeries(SERIES.STEO_COMM_PRICE),
-          fetchISOLatest(35),
+          // bundle 134: one server-side summary (benchmark hub per ISO, 30 days).
+          // The old query read the OLDEST 1000 rows of the window, not the month.
+          window._beaconSb.rpc('market_desk').then(r => (r && r.data && r.data.iso) || [], () => []),
         ]);
 
       // ── Henry Hub spot ──
@@ -782,15 +784,9 @@
       }
 
       // ── ISO LMP medians (per ISO, ~30-day) ──
-      const byIso = {};
-      isoRows.forEach(r => {
-        if (r.iso && r.value != null) (byIso[r.iso] = byIso[r.iso] || []).push(Number(r.value));
-      });
-      const isoTable = Object.keys(byIso).map(iso => {
-        const vals = byIso[iso].slice().sort((a, b) => a - b);
-        return { iso: iso, avg: vals.reduce((a, b) => a + b, 0) / vals.length,
-                 median: vals[Math.floor(vals.length / 2)], n: vals.length };
-      }).sort((a, b) => a.avg - b.avg);
+      const isoTable = isoRows.filter(r => r.avg30 != null).map(r => ({
+        iso: r.iso, hub: r.bench_label, avg: Number(r.avg30), median: r.median30 != null ? Number(r.median30) : null, n: Number(r.n30) || 0,
+      })).sort((a, b) => a.avg - b.avg);
 
       // ── STEO commercial electricity forecast ──
       steoCommRows.sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
@@ -807,7 +803,7 @@
       const liveStamps = [
         latestSpot && latestSpot.observed_at,
         latestStorage && latestStorage.observed_at,
-        isoRows.length ? isoRows[isoRows.length - 1].observed_at : null,
+        isoRows.map(r => r.last_at).filter(Boolean).sort().pop() || null,
       ].filter(Boolean);
       const asOf = liveStamps.length ? liveStamps.sort().pop() : null;
 
@@ -878,10 +874,10 @@
       }
       // Fire panels in parallel; each handles its own loading / error state
       await Promise.all([
-        renderSummaryStrip(),
+        // bundle 134: summary strip hidden (the Trading Desk shows these numbers)
         renderStoragePanel(),
         renderHenryHubPanel(),
-        renderISOPanel(),
+        // bundle 134: ISO panel replaced by the Trading Desk tiles (trading_desk.js)
         renderSTEOPanel(),
       ]);
     } finally {
