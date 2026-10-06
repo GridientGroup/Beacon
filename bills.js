@@ -118,9 +118,18 @@
   }
 
   // One review row. Every check that decides "can this be saved" lives here.
+  // Month-only rows (a bill's usage-history table prints a month, not read
+  // dates). Off by default; when the broker turns it on, each such row gets
+  // the calendar month as its period and is labelled approximate everywhere.
+  var _calMonths = false;
+  function nextMonth(m) { var y = +m.slice(0, 4), mo = +m.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + '-' + String(mo).padStart(2, '0'); }
   function check(r, byId) {
     var a = byId[r.account_id];
     r.problem = '';
+    if (r.month && /^\d{4}-\d{2}$/.test(r.month) && (!r.start || !r.end || r.approx)) {
+      if (_calMonths) { r.start = r.month + '-01'; r.end = nextMonth(r.month) + '-01'; r.approx = true; }
+      else if (r.approx) { r.start = null; r.end = null; r.approx = false; }
+    }
     if (!a) r.problem = 'pick the meter';
     else if (!r.start || !r.end) r.problem = r.month ? 'month only — needs read dates' : 'no dates';
     else if (days(r.start, r.end) < 1 || days(r.start, r.end) > MAX_DAYS) r.problem = 'period ' + days(r.start, r.end) + ' days';
@@ -289,16 +298,22 @@
   }
   function addDegreeDays(rows, accts) {
     var byId = {}; accts.forEach(function (a) { byId[a.id] = a; });
-    var pts = {}, keyOf = {};
+    var pts = {}, keyOf = {}, noCity = {};
     rows.forEach(function (r) {
       var a = byId[r.account_id]; if (!a) return;
-      var g = coordsFor(a); if (!g) return;
-      var k = g.lat.toFixed(2) + ',' + g.lng.toFixed(2);
+      var g = coordsFor(a);
+      // A state-center fallback can sit hundreds of km from the building (WA's
+      // lands on Stampede Pass), so when the city isn't on Beacon's own map the
+      // server places the meter from its ZIP code instead.
+      var k, pt;
+      if (g && !g.approximate) { k = g.lat.toFixed(2) + ',' + g.lng.toFixed(2); pt = { key: k, lat: g.lat, lon: g.lng }; }
+      else if (/^\d{5}/.test(String(a.zip || ''))) { k = 'zip:' + String(a.zip).slice(0, 5); pt = { key: k, zip: String(a.zip).slice(0, 5), city: a.city, state: a.state }; }
+      else { noCity[a.id] = 1; return; }
       keyOf[r.account_id] = k;
-      pts[k] = { key: k, lat: g.lat, lon: g.lng, approx: !!g.approximate };
+      pts[k] = pt;
     });
     var keys = Object.keys(pts);
-    if (!rows.length || !keys.length) return Promise.resolve({ stations: {} });
+    if (!rows.length || !keys.length) return Promise.resolve({ stations: {}, noCity: Object.keys(noCity).length });
     var start = rows.reduce(function (m, r) { return r.period_start < m ? r.period_start : m; }, '9999');
     var end = rows.reduce(function (m, r) { return r.period_end > m ? r.period_end : m; }, '0000');
     var floor = isoOf(new Date(ms(end) - 1095 * DAY));
@@ -324,8 +339,8 @@
         r.station = w.name || w.station;
       });
       var st = {};
-      keys.forEach(function (k) { if (res[k] && res[k].station) st[k] = { name: res[k].name, id: res[k].station, km: res[k].km, approx: pts[k].approx }; });
-      return { stations: st };
+      keys.forEach(function (k) { if (res[k] && res[k].station) st[k] = { name: res[k].name, id: res[k].station, km: res[k].km }; });
+      return { stations: st, noCity: Object.keys(noCity).length };
     });
   }
   function publish(cid, accts, rows) {
@@ -359,7 +374,7 @@
     var with24 = ids.filter(function (k) { return per[k].n >= 24; }).length;
     var last = ids.reduce(function (m, k) { return per[k].last > m ? per[k].last : m; }, '');
     var dd = rows.filter(function (r) { return r.hdd != null; }).length;
-    var st = Object.keys((wx && wx.stations) || {}).map(function (k) { var s = wx.stations[k]; return esc(s.name) + ' (' + s.km + ' km' + (s.approx ? ', state-center location' : '') + ')'; });
+    var st = Object.keys((wx && wx.stations) || {}).map(function (k) { var s = wx.stations[k]; return esc(s.name) + ' (' + s.km + ' km)'; });
     var row = function (l, v) { return '<div class="bm-row"><span class="bm-row-lbl">' + l + '</span><span class="bm-row-val">' + v + '</span></div>'; };
     return '<div class="ic-lbl">🧾 Monthly bills on file</div><div class="ic-cols"><div class="ic-hero"><div class="bm-bignum">' + ids.length + '<span style="font-size:16px;color:var(--mu)"> / ' + accts.length + '</span></div>' +
       '<div class="ic-unit">meters with monthly bills</div></div><div class="ic-data">' +
@@ -370,7 +385,8 @@
       row('Weather matched', rows.length ? dd + ' of ' + rows.length + ' bills' : '—') +
       '</div></div>' +
       (st.length ? '<div class="loc-card-srcline" style="margin-top:6px">Degree days: NOAA NCEI daily (base 65°F) · ' + st.slice(0, 3).join(' · ') + (st.length > 3 ? ' · +' + (st.length - 3) + ' more' : '') + '</div>' : '') +
-      (_state.msg ? '<div class="loc-card-srcline" style="margin-top:4px">' + esc(_state.msg) + '</div>' : '');
+      (wx && wx.noCity ? '<div class="loc-card-srcline" style="margin-top:4px;color:#f59e0b">' + wx.noCity + ' meter' + (wx.noCity === 1 ? '' : 's') + ': no weather match (city not on Beacon\u2019s map and no ZIP on the location).</div>' : '') +
+            (_state.msg ? '<div class="loc-card-srcline" style="margin-top:4px">' + esc(_state.msg) + '</div>' : '');
   }
   function tileB() {
     return '<div class="ic-lbl">⬆ Add bills</div>' +
@@ -394,7 +410,7 @@
       var sel = opts.replace('value="' + esc(r.account_id) + '"', 'value="' + esc(r.account_id) + '" selected');
       return '<tr' + (r.problem ? ' style="opacity:.75"' : '') + '><td ' + td + '><input type="checkbox" data-bil-ok="' + i + '"' + (r.ok && !r.problem ? ' checked' : '') + (r.problem ? ' disabled' : '') + '></td>' +
         '<td ' + td + '><select data-bil-acct="' + i + '" style="max-width:260px;background:#0a0e1a;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:4px;font-size:11px">' + sel + '</select>' + (r.file_acct ? '<div style="color:var(--mu);font-size:10px">file: ' + esc(r.file_acct) + '</div>' : '') + '</td>' +
-        '<td ' + td + '>' + esc(r.start || (r.month ? r.month : '—')) + (r.end ? ' → ' + esc(r.end) : '') + '</td>' +
+        '<td ' + td + '>' + (r.approx ? esc(r.month) + ' <span style="color:#f59e0b;font-size:10px">calendar month · approx</span>' : esc(r.start || (r.month ? r.month : '—')) + (r.end ? ' → ' + esc(r.end) : '')) + '</td>' +
         '<td ' + td + ' style="text-align:right">' + fmtN(r.usage) + ' ' + esc(r.unit || r.raw_unit || '') + (r.raw_unit && r.unit && String(r.raw_unit).toLowerCase() !== r.unit.toLowerCase() ? '<div style="color:var(--mu);font-size:10px">from ' + esc(r.raw_unit) + '</div>' : '') + '</td>' +
         '<td ' + td + '>' + (r.demand_kw != null ? fmtN(r.demand_kw) + ' kW' : '') + '</td>' +
         '<td ' + td + '>' + (r.cost != null ? '$' + Number(r.cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '') + '</td>' +
@@ -403,16 +419,23 @@
     C.innerHTML = '<div class="ic-lbl">✔ Check before saving</div>' +
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 8px"><button type="button" data-bil-save style="' + BTN + '"' + (good ? '' : ' disabled') + '>Save ' + good + ' bill' + (good === 1 ? '' : 's') + '</button>' +
       '<button type="button" data-bil-clear style="' + BTN2 + '">Discard</button><span class="loc-card-srcline" data-bil-smsg>' + _review.length + ' rows read · ' + (_review.length - good) + ' need attention or are unticked. Saving the same meter and period again replaces it.</span></div>' +
+      (_review.some(function (r) { return r.month && (!r.start || r.approx); }) ? '<label style="display:flex;gap:8px;align-items:center;font-size:11px;color:#fff;margin:0 0 8px;cursor:pointer"><input type="checkbox" data-bil-cal' + (_calMonths ? ' checked' : '') + '> Save month-only history rows as calendar months (dates approximate; labelled on each saved bill)</label>' : '') +
       '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="border-collapse:collapse;font-size:11px;color:#fff;width:100%"><thead><tr><th ' + th + '></th><th ' + th + '>Meter</th><th ' + th + '>Period</th><th ' + th + '>Usage</th><th ' + th + '>Demand</th><th ' + th + '>Cost</th><th ' + th + '>Source</th></tr></thead><tbody>' + body + '</tbody></table></div>';
     C.querySelectorAll('[data-bil-acct]').forEach(function (s) {
       s.addEventListener('change', function () {
-        var r = _review[+s.getAttribute('data-bil-acct')], a = byId[s.value];
-        r.account_id = s.value; r.ok = true;
-        if (a && r.unit == null && r.raw_unit === '' && r.usage != null) r.unit = unitFor(a);
+        var r = _review[+s.getAttribute('data-bil-acct')], a = byId[s.value], was = r.account_id;
+        // The same account on the same file is the same meter: one pick sets them all.
+        _review.forEach(function (x) {
+          if (x !== r && !(x.file_acct === r.file_acct && x.doc === r.doc && (!x.account_id || x.account_id === was))) return;
+          x.account_id = s.value; x.ok = true;
+          if (a && x.unit == null && x.raw_unit === '' && x.usage != null) x.unit = unitFor(a);
+        });
         paintReview(C, accts);
       });
     });
     C.querySelectorAll('[data-bil-ok]').forEach(function (cb) { cb.addEventListener('change', function () { _review[+cb.getAttribute('data-bil-ok')].ok = cb.checked; paintReview(C, accts); }); });
+    var cal = C.querySelector('[data-bil-cal]');
+    if (cal) cal.addEventListener('change', function () { _calMonths = cal.checked; _review.forEach(function (x) { if (x.month) x.ok = true; }); paintReview(C, accts); });
     C.querySelector('[data-bil-clear]').addEventListener('click', function () { _review = []; paintReview(C, accts); });
     C.querySelector('[data-bil-save]').addEventListener('click', function () { save(C, accts); });
   }
@@ -420,7 +443,7 @@
     var ctx = active(), c = sb(), m = C.querySelector('[data-bil-smsg]');
     var rows = _review.filter(function (r) { return r.ok && !r.problem; }).map(function (r) {
       return { account_id: r.account_id, period_start: r.start, period_end: r.end, consumption: r.usage, unit: r.unit,
-        demand_kw: r.demand_kw, cost: r.cost, source: r.source, doc: r.doc };
+        demand_kw: r.demand_kw, cost: r.cost, source: r.source, doc: (r.doc || '') + (r.approx ? ' · calendar month (approx dates)' : '') };
     });
     if (!rows.length || !c) return;
     m.textContent = 'Saving ' + rows.length + '…';
@@ -429,8 +452,11 @@
       _review = _review.filter(function (x) { return !(x.ok && !x.problem); });
       _state.msg = 'Saved ' + r.data + ' bill' + (r.data === 1 ? '' : 's') + '.';
       _state.cid = null; _sig = '';
+      paintReview(C, accts);          // clears the saved rows and the "Saving…" line
+      var done = C.querySelector('[data-bil-smsg]');
+      if (done) done.textContent = _state.msg + (_review.length ? ' ' + _review.length + ' rows still need attention.' : '');
       render();
-    });
+    }, function (e) { m.textContent = 'Not saved: ' + ((e && e.message) || 'network error'); m.style.color = '#ef4444'; });
   }
   function bindUpload(B, C, accts) {
     var m = B.querySelector('[data-bil-msg]');
