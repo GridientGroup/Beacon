@@ -677,7 +677,7 @@
     var flagged = [], metersRun = 0, metersFlagged = 0, screen = null;
 
     accounts.forEach(function (a) {
-      var bills = hist.by_account[acctStore(a)];
+      var bills = hist.by_account[acctStore(a)] || hist.by_account["id:" + (a && a.id)];
       if (!bills || bills.length < 6) return;
       metersRun++;
       var model = window.BeaconWeatherNorm.fitModel(bills);
@@ -771,7 +771,7 @@
     var metersRun = 0, metersPassing = 0, tooShort = 0;
 
     accounts.forEach(function (a) {
-      var bills = hist.by_account[acctStore(a)];
+      var bills = hist.by_account[acctStore(a)] || hist.by_account["id:" + (a && a.id)];
       if (!bills) return;
       if (bills.length < 24) { if (bills.length >= 6) tooShort++; return; }
 
