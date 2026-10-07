@@ -37,13 +37,27 @@
 /* bundle 145: Beacon tells this map which part of it is on screen, so its
    pop-up cards open in the middle of what you can see, not the middle of the
    whole (taller) map frame. */
-window.addEventListener('message', function (e) {
-  var d = e && e.data;
-  if (!d || d.type !== 'beacon-viewport') return;
-  var r = document.documentElement.style;
-  r.setProperty('--vp-top', Math.max(0, d.top) + 'px');
-  r.setProperty('--vp-h', Math.max(240, d.height) + 'px');
-});
+(function () {
+  // bundle 146: keep the numbers here and put them only on open pop-ups.
+  // (Setting them on the whole page re-styled the entire map on every scroll.)
+  var vp = null;
+  function apply(el) { if (!vp) return; el.style.setProperty('--vp-top', vp.t); el.style.setProperty('--vp-h', vp.h); }
+  function applyAll() { var l = document.querySelectorAll('[role=dialog]'); for (var i = 0; i < l.length; i++) apply(l[i]); }
+  window.addEventListener('message', function (e) {
+    var d = e && e.data;
+    if (!d || d.type !== 'beacon-viewport') return;
+    vp = { t: Math.max(0, d.top) + 'px', h: Math.max(240, d.height) + 'px' };
+    applyAll();
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    new MutationObserver(function (m) {
+      for (var i = 0; i < m.length; i++) for (var k = 0; k < m[i].addedNodes.length; k++) {
+        var n = m[i].addedNodes[k]; if (n.nodeType !== 1) continue;
+        if (n.getAttribute('role') === 'dialog') apply(n); else if (n.querySelector) { var q = n.querySelectorAll('[role=dialog]'); for (var z = 0; z < q.length; z++) apply(q[z]); }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+})();
 </script>
 </head>
 <body>

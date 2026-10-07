@@ -9360,6 +9360,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="program_pages.js"></script>
 <script src="sqft.js"></script>
 <script src="control_dock.js"></script>
+<script src="polish.js"></script>
 <script>
 /* bundle 145: audience-aware headings. The text in the page is the client
    wording (formal); data-aud-broker holds the broker wording. */
@@ -9374,7 +9375,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     });
   } catch(e){} }
   function soon(){ if (!t) t = setTimeout(paint, 40); }
-  function boot(){ paint(); new MutationObserver(soon).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); }
+  function boot(){ paint(); new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); new MutationObserver(soon).observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 /* bundle 143: program cards must never show blank buttons. If the normal
@@ -15702,14 +15703,18 @@ window._renderLocationPopup = function (locationId) {
       var tb = document.querySelector('.topbar'), hb = tb ? Math.max(0, tb.getBoundingClientRect().bottom) : 0;
       var r = f.getBoundingClientRect(), top = Math.max(0, hb - r.top), bot = Math.min(r.height, window.innerHeight - r.top);
       if (bot <= top) return;
+      if (!f._b146) { f._b146 = 1; f.addEventListener('load', function(){ _mvLast = ''; }); }
+      var key = Math.round(top) + ':' + Math.round(bot - top);
+      if (key === _mvLast) return; _mvLast = key;   // bundle 146: only when it changed
       f.contentWindow.postMessage({ type: 'beacon-viewport', top: Math.round(top), height: Math.round(bot - top) }, '*');
     } catch (e) {}
   }
-  var _mvT = null;
+  var _mvT = null, _mvLast = '';
   function _mapViewportSoon(){ if (_mvT) return; _mvT = setTimeout(function(){ _mvT = null; _mapViewport(); }, 60); }
   window.addEventListener('scroll', _mapViewportSoon, { passive: true });
   window.addEventListener('resize', _mapViewportSoon);
   setInterval(_mapViewport, 1500);
+  document.addEventListener('visibilitychange', function(){ _mvLast = ''; });
 
   // Listen for postMessages from inside the iframe and open the Beacon
   // Location detail page when one of its rows / buttons is clicked.

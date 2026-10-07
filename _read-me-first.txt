@@ -1,67 +1,29 @@
-BEACON DEPLOY BUNDLE — beacon_index_145
-(Includes 143 and 144. Deploy alone.)
+BEACON DEPLOY BUNDLE — beacon_index_146
+(Builds on 145, which you deployed. Deploy alone.)
 ══════════════════════════════════════════════════════════════════════════════
-Changed vs 144: index.html, control_dock.js, beacon_pro_renderer.js,
-  triggers.js, trading_desk.js, market_intel.js, portfolio_map.html
+Changed vs 145: index.html, portfolio_map.html
+New: polish.js
 
-━━ CLIENT VIEW, ONE HOVER AWAY ━━
-  • Hover the Ask Gridient button: the person icon at the end of the strip
-    flips to the client view. In the client view the same hover shows one
-    amber icon, "Back to broker view". (The switch is also still in the tray.)
-  • Real customers never see it (customer links and client logins remove it).
+━━ SMOOTHER ━━
+  • Biggest fix: scrolling past the portfolio map re-styled the whole map on
+    every scroll step (a side effect of 145's "pop-ups open in view" fix). The
+    map now only updates an open pop-up. Measured: the ~0.8-second stall while
+    scrolling the Overview is gone.
+  • Header bar: solid dark glass instead of a live blur recomputed on every
+    scroll frame.
+  • Ask Gridient mark: plays its intro glow once, then holds still (it was
+    repainting forever).
+  • Cards and buttons animate only lift, shadow and border on hover.
+  • Numbers use fixed-width digits so they don't shift as values load.
 
-━━ BROKER VS CLIENT WORDING ━━
-  Section headings now change with the view, and the client wording is formal:
-    Client view                                   Broker view
-    How does the portfolio compare with           How does this client compare with
-      comparable buildings?                         comparable buildings?
-    Have your changes affected your bottom line?  Have this client's changes affected
-                                                    their bottom line?
-    How is energy used across the day?            When does this client use energy,
-                                                    hour by hour?
-    How is the portfolio performing against       How is this client's portfolio
-      benchmarks?                                   performing?
-    Are current supply contracts outperforming    Are this client's contracts beating
-      default service?                              default service?
-    What risks does the portfolio face?           What risks can you help this client
-                                                    manage?
-    (+ Next 120 days, bills and load-shape headings)
+━━ DEPTH & DETAIL (polish.js) ━━
+  • Soft layered shadows and a faint top highlight on every card.
+  • A hair-thin line in the firm's colour across each card's top edge
+    (Power Kiosk blue / STS lime) and under the header.
+  • Clickable cards lift 2px on hover; buttons press in slightly.
+  • Gentle row hovers in lists and tables, slim dark scrollbars, accent focus
+    rings, crisper text.
+  Visual only: no numbers, wording or layout changed.
 
-━━ NEXT 120 DAYS (Intelligence tab), REDESIGNED ━━
-  • A timeline across the 120 days with TODAY marked: one lane each for
-    contracts, default rates and BPS. Each dot is sized by its dollar figure;
-    hover for the detail, click to jump to that item.
-  • The list is grouped by month (with counts), each item has a colour bar for
-    its type and its dollar figure on the right ("if it rolls to default",
-    "maximum fine", "% default"). Same numbers as before — nothing new estimated.
-
-━━ TRADING DESK, REGROUPED ━━
-  1. Signals → Wholesale exposure by ISO (this client / your book)
-  2. Power markets — the six ISO hubs
-  3. Natural gas — Henry Hub + storage tiles, then the storage and Henry Hub charts
-  4. Retail outlook — EIA outlook tile, then the commercial electricity chart
-  5. REC markets · Methodology
-  Nothing removed; everything sits next to what it belongs with.
-
-━━ GAS NUMBERS NOW AGREE (Trading Desk) ━━
-  • Storage chart and storage tile use the same basis (EIA's): the average of
-    the same week in each of the prior 5 years. Both now read
-    3,415 Bcf · week ending Sep 25 · +2.8% vs 5-yr avg (3,321 Bcf).
-    (The chart used to say −0.9% vs a "5-year median" taken over every year on
-    file, and showed the date a day early.) Its band is now the prior 5 years.
-  • Henry Hub chart: the EIA 18-month forecast now shows (it said "loading"
-    because EIA's monthly rows aren't tagged as forecast; months from now on
-    count as forecast). 12-month average $3.11, the same as the outlook tile.
-  • Dates on these charts no longer slip a day (Sep 29 everywhere).
-  • Commercial electricity chart: the last 3 years + EIA's outlook (it started
-    in 1989), axis labels read Oct ’23, Nov ’25, Nov ’27.
-
-━━ MAP POP-UPS OPEN IN VIEW ━━
-  • The city list ("Hartford, CT · 2 locations") and the single-location card
-    on the portfolio map now open in the middle of the part of the map you can
-    see, below the header, and never run off the bottom of the screen. (They were
-    centred on the whole map frame, which is taller than the screen.)
-  • Clicking a location in the map's Locations list (or a search result) now
-    opens the location page straight away. The pop-up card is only for map pins.
-
-UNDO: redeploy 144.
+UNDO: delete the line <script src="polish.js"></script> in index.html for the
+look; redeploy 145 for everything.
