@@ -940,13 +940,13 @@
 
   var GROUPS = [
     { key: 'physics', eye: 'Theme · Physics-Based Benchmarks',
-      title: 'How does your portfolio compare structurally?',
+      title: 'How does the portfolio compare with comparable buildings?', btitle: 'How does this client compare with comparable buildings?',
       sub: 'reference models · carbon accounting · grid opportunity' },
     { key: 'mv', eye: 'Theme · Measurement & Verification',
-      title: 'Is what you changed actually saving anything?',
+      title: 'Have your changes affected your bottom line?', btitle: 'Have this client\'s changes affected their bottom line?',
       sub: 'requires a billing history · weather-adjusted' },
     { key: 'interval', eye: 'Theme · Interval Intelligence',
-      title: 'What is happening hour by hour?',
+      title: 'How is energy used across the day?', btitle: 'When does this client use energy, hour by hour?',
       sub: 'requires interval data · 15-minute or hourly' },
   ];
 
@@ -1054,7 +1054,7 @@
       if (!tiles.length) return;
       html += '<div class="igrid-theme-hd">';
       html += '  <div class="igrid-theme-eye">' + g.eye + '</div>';
-      html += '  <div class="igrid-theme-title">' + g.title + '</div>';
+      html += '  <div class="igrid-theme-title"' + (g.btitle ? ' data-aud-broker="' + g.btitle.replace(/"/g, '&quot;') + '"' : '') + '>' + g.title + '</div>';
       html += '  <div class="igrid-theme-sub">' + g.sub + '</div>';
       html += '</div>';
       html += '<div class="igrid igrid-' + Math.min(tiles.length, 3) + '">' + tiles.join('') + '</div>';

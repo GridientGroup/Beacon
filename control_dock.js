@@ -20,6 +20,7 @@
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
     admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
     broker: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M3 13h18"/>',
+    signout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/>',
     client: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>'
   };
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + I[k] + '</svg>'; }
@@ -31,10 +32,13 @@
     { k: 'swap', tip: 'Switch client', target: '#switch-customer-btn' },
     { k: 'add', tip: 'Add client', target: '#ac-hdr-btn' },
     { k: 'edit', tip: 'Edit client', target: '#edit-client-btn' },
-    { k: 'admin', tip: 'Admin', target: '.nav-row-2 .vbtn-admin' }
+    { k: 'admin', tip: 'Admin', target: '.nav-row-2 .vbtn-admin' },
+    // bundle 143: sign out (tray only)
+    { k: 'signout', tip: 'Sign out', trayOnly: true, fn: function () { if (window.beaconSignOut) window.beaconSignOut(); } }
   ];
   function closeTray() { var x = document.getElementById('ag-close'); var d = document.getElementById('ag-drawer'); if (x && d && d.classList.contains('ag-open')) x.click(); }
   function run(a) {
+    if (a.fn) { closeTray(); return a.fn(); }
     var el = $(a.target);
     if (!el) return;
     closeTray();
@@ -86,7 +90,9 @@
       '#cdock-mini [data-cdock-tip]::after{top:auto;bottom:calc(100% + 8px);transform:translate(-50%,2px)}#cdock-mini [data-cdock-tip]:hover::after{transform:translate(-50%,0)}' +
       'body.cdock-tray-open #cdock-mini{display:none}' +
       // clients: actions gone, chat stays
-      'body.client-view .cdock-icons .cdock-act,body.client-view #cdock-mini,body.client-view .cdock-sep{display:none!important}' +
+      'body.client-view .cdock-icons .cdock-act,body.client-view #cdock-mini .cdock-act,body.client-view .cdock-icons .cdock-sep,body.client-view #cdock-mini .cdock-sep{display:none!important}' +
+      '#cdock-mini .cdock-sep{width:1px;align-self:stretch;margin:6px 3px;background:rgba(255,255,255,.12)}' +
+      '#cdock-mini .cdock-flip{color:#FFB900}' +
       '@media (hover:none),(max-width:700px){#cdock-mini{display:none!important}}' +
       '@media (max-width:600px){.cdock-icons{gap:6px}.cdock-ic{width:34px;height:34px}}';
     document.head.appendChild(st);
@@ -108,7 +114,8 @@
   function btn(a, cls) {
     return '<button type="button" class="cdock-ic ' + (cls || '') + '" data-cdock="' + a.k + '" data-cdock-tip="' + esc(a.tip) + '" aria-label="' + esc(a.tip) + '">' + svg(a.k) + '</button>';
   }
-  function available(a) { var el = $(a.target); return !!el; }
+  function available(a) { if (a.fn) return typeof window.beaconSignOut === 'function'; var el = $(a.target); return !!el; }
+  function miniOk(a) { return !a.trayOnly && available(a); }
 
   function paintCtx() {
     var ctx = $('#ag-drawer .ag-ctx'); if (!ctx) return;
@@ -155,17 +162,22 @@
   function mini() {
     var pill = document.getElementById('ag-pill'); if (!pill) return;
     var m = document.getElementById('cdock-mini');
-    var acts = ACTIONS.filter(available);
+    var acts = ACTIONS.filter(miniOk);
     if (!m) {
-      m = document.createElement('div'); m.id = 'cdock-mini'; m.className = 'broker-only'; m.setAttribute('role', 'toolbar'); m.setAttribute('aria-label', 'Quick actions');
+      m = document.createElement('div'); m.id = 'cdock-mini'; m.setAttribute('role', 'toolbar'); m.setAttribute('aria-label', 'Quick actions');
       document.body.appendChild(m);
-      var show = function () { if (document.body.classList.contains('client-view')) return; clearTimeout(hideT); place(); m.classList.add('show'); };
+      var show = function () { if (document.body.classList.contains('client-view') && !$('.lp-toggle')) return; clearTimeout(hideT); place(); m.classList.add('show'); };
       var hide = function () { clearTimeout(hideT); hideT = setTimeout(function () { m.classList.remove('show'); }, 220); };
       pill.addEventListener('mouseenter', show); pill.addEventListener('mouseleave', hide);
       m.addEventListener('mouseenter', show); m.addEventListener('mouseleave', hide);
       pill.addEventListener('click', function () { m.classList.remove('show'); });
     }
-    var html = acts.map(function (a) { return btn(a, 'cdock-act'); }).join('');
+    // bundle 145: the Broker | Client flip also lives here, so it's one hover away
+    var flip = '';
+    if ($('.lp-toggle')) flip = (acts.length ? '<span class="cdock-sep"></span>' : '') + (viewIsClient()
+      ? btn({ k: 'broker', tip: 'Back to broker view' }, 'cdock-flip')
+      : btn({ k: 'client', tip: 'Show the client view' }, ''));
+    var html = acts.map(function (a) { return btn(a, 'cdock-act'); }).join('') + flip;
     if (m.getAttribute('data-sig') !== html) { m.setAttribute('data-sig', html); m.innerHTML = html; wire(m); }
   }
   function place() {

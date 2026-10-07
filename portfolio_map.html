@@ -33,6 +33,18 @@
     .boot .ring { width: 32px; height: 32px; border: 2px solid #1F3454; border-top-color: #FF6B35; border-radius: 50%; animation: spin 0.8s linear infinite; }
     .boot .label { color: #5A708F; font-size: 11px; letter-spacing: 4px; }
   </style>
+<script>
+/* bundle 145: Beacon tells this map which part of it is on screen, so its
+   pop-up cards open in the middle of what you can see, not the middle of the
+   whole (taller) map frame. */
+window.addEventListener('message', function (e) {
+  var d = e && e.data;
+  if (!d || d.type !== 'beacon-viewport') return;
+  var r = document.documentElement.style;
+  r.setProperty('--vp-top', Math.max(0, d.top) + 'px');
+  r.setProperty('--vp-h', Math.max(240, d.height) + 'px');
+});
+</script>
 </head>
 <body>
   <div class="boot" id="boot">
@@ -987,7 +999,7 @@
                 <div key={a.id}
                   onMouseEnter={() => setHoveredId(a.id)}
                   onMouseLeave={() => setHoveredId(null)}
-                  onClick={() => setSelectedId(a.id)}
+                  onClick={() => openLocation(a)}
                   className="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer"
                   style={{
                     background: active ? `${meta.color}1A` : 'rgba(255,255,255,0.02)',
@@ -1050,10 +1062,10 @@
           <div role="dialog" aria-modal="true"
             style={{
               position: 'fixed', zIndex: 51,
-              top: '50%', left: '50%',
+              top: 'calc(var(--vp-top, 0px) + var(--vp-h, 100vh) / 2)', left: '50%',
               transform: 'translate(-50%, -50%)',
               width: 'min(560px, calc(100vw - 32px))',
-              maxHeight: 'calc(100vh - 64px)',
+              maxHeight: 'calc(var(--vp-h, 100vh) - 48px)',
               display: 'flex', flexDirection: 'column',
               background: C.panelSolid,
               border: `1px solid ${accent}`,
@@ -1252,10 +1264,10 @@
             aria-modal="true"
             style={{
               position: 'fixed', zIndex: 51,
-              top: '50%', left: '50%',
+              top: 'calc(var(--vp-top, 0px) + var(--vp-h, 100vh) / 2)', left: '50%',
               transform: 'translate(-50%, -50%)',
               width: 'min(560px, calc(100vw - 32px))',
-              maxHeight: 'calc(100vh - 64px)',
+              maxHeight: 'calc(var(--vp-h, 100vh) - 48px)',
               overflowY: 'auto',
               background: C.panelSolid,
               border: `1px solid ${meta.color}`,

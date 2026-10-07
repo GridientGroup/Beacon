@@ -227,13 +227,18 @@
     var st = document.createElement('style'); st.id = 'desk-css';
     st.textContent = '.desk-iso-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}' +
       '@media (max-width:1100px){.desk-iso-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
-      '@media (max-width:640px){.desk-iso-grid{grid-template-columns:1fr}}';
+      '@media (max-width:640px){.desk-iso-grid{grid-template-columns:1fr}}' +
+      '#sec-market .desk-hd{margin-top:34px}';
     document.head.appendChild(st);
+  }
+  function deskHd(eye, title, sub) {
+    return '<div class="igrid-theme-hd desk-hd"><div class="igrid-theme-eye">' + eye + '</div><div class="igrid-theme-title">' + title + '</div>' + (sub ? '<div class="igrid-theme-sub">' + sub + '</div>' : '') + '</div>';
   }
   function render() {
     var root = document.getElementById('desk-root'); if (!root) return;
+    var gasRoot = document.getElementById('desk-root-gas'), steoRoot = document.getElementById('desk-root-steo');
     css();
-    if (clientView()) { root.innerHTML = ''; return; }
+    if (clientView()) { root.innerHTML = ''; if (gasRoot) gasRoot.innerHTML = ''; if (steoRoot) steoRoot.innerHTML = ''; return; }
     var d = STATE.d;
     if (!d) { root.innerHTML = '<div class="icard"><div class="loc-card-sub">' + (STATE.err ? 'Market data unavailable: ' + esc(STATE.err) : 'Loading the trading desk…') + '</div></div>'; return; }
     var cex = exposure(STATE.scope === 'book' && STATE.book ? STATE.book : clientAccts(), d);
@@ -247,12 +252,16 @@
         (sig.length ? sig.map(function (s) { return '<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-top:1px solid rgba(255,255,255,.05);font-size:12px;line-height:1.45"><span class="loc-pill ' + s.sev + '" style="flex:none">' + esc(s.tag) + '</span><span>' + esc(s.txt) + '</span></div>'; }).join('')
           : '<div class="loc-card-sub">Nothing unusual: power within 25% of its 30-day average, Henry Hub within 5% of a week ago, storage within 5% of the 5-year average.</div>') +
         '<div class="loc-card-srcline" style="margin-top:4px">Market context for your conversations, not a price forecast. Amber = upward pressure, green = easing.</div></div>' +
+      // bundle 145: grouped — the book first, then power, gas and the retail outlook,
+      // each with its charts beside it (gas and outlook live in their own roots below).
+      '<div>' + exposureCard(d) + '</div>' +
+      deskHd('Power markets', 'Wholesale power by ISO', 'real-time hub prices · click an ISO for its 30-day chart and every hub and zone') +
       '<div class="desk-iso-grid">' + (d.iso || []).map(isoTile).join('') + '</div>' +
-      (open ? isoDetail(open) : '<div class="loc-card-srcline" style="margin:6px 0 0">Click an ISO for its 30-day chart and every hub and zone.</div>') +
-      '<div style="margin-top:13px">' + exposureCard(d) + '</div>' +
-      '<div class="igrid" style="margin-top:13px">' + gasCards(d) + '</div>' +
-      '<div style="margin-top:13px">' + steoCard(d) + '</div>' +
-      '<div class="igrid-theme-hd"><div class="igrid-theme-eye">Charts &amp; outlook</div><div class="igrid-theme-title">Storage band, Henry Hub and EIA forecasts</div></div>';
+      (open ? isoDetail(open) : '') +
+      (gasRoot ? '' : '<div class="igrid" style="margin-top:13px">' + gasCards(d) + '</div>') +
+      (steoRoot ? '' : '<div style="margin-top:13px">' + steoCard(d) + '</div>');
+    if (gasRoot) gasRoot.innerHTML = '<div class="igrid" style="margin-top:0">' + gasCards(d) + '</div>';
+    if (steoRoot) steoRoot.innerHTML = steoCard(d);
     root.querySelectorAll('[data-iso]').forEach(function (el) { el.addEventListener('click', function () { var k = el.getAttribute('data-iso'); STATE.open = STATE.open === k ? null : k; render(); }); });
     root.querySelectorAll('[data-scope]').forEach(function (el) { el.addEventListener('click', function () { STATE.scope = el.getAttribute('data-scope'); render(); }); });
     var rf = root.querySelector('[data-refresh]'); if (rf) rf.addEventListener('click', function (e) { e.preventDefault(); load(true); });

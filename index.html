@@ -128,6 +128,9 @@ body{background:var(--bg);font-family:'Inter',-apple-system,BlinkMacSystemFont,s
 .panel-l{padding:26px 32px;border-right:1px solid var(--b1);display:flex;flex-direction:column;gap:28px;overflow-y:auto}
 .panel-r{padding:20px 16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
 .rail-default{display:flex;flex-direction:column;gap:14px}
+/* bundle 143: clear the Ask Gridient pill; hide empty contact rows */
+.rail-default{padding-bottom:76px}
+.rep-link:empty{display:none}
 .rail-scorecard{display:none;flex-direction:column;gap:8px}
 .panel-r[data-view="scorecard"] .rail-default{display:none}
 .panel-r[data-view="scorecard"] .rail-scorecard{display:flex}
@@ -5316,8 +5319,13 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
             var s1resp = await sb.auth.getSession();
             var s1sess = s1resp && s1resp.data ? s1resp.data.session : null;
             if (s1sess && s1sess.user) {
-              // A) Signed-in broker path (rev36 — unchanged).
-              await hydrateCustomerFromSupabase(pathCustomerId);
+              // A) Signed-in broker path (rev36).
+              // bundle 143: a broker opening ANOTHER firm's client link (e.g. a
+              // demo link from Admin → Firms) can't read that client under RLS.
+              // Rather than an empty Acme shell, fall through to the snapshot
+              // path below so the link shows the client's portal.
+              var _bm = await hydrateCustomerFromSupabase(pathCustomerId);
+              if (!_bm) { console.warn('[auth] broker cannot reach', pathCustomerId, '— using the client link view'); throw { _beaconFallback: true }; }
               // rev37.3: also resolve the snapshot-ready promise so the
               // legacy initAuth gate (waiting on _beaconSnapshotReady)
               // unblocks promptly. Broker path doesn't use the snapshot,
@@ -5326,7 +5334,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
               return;
             }
           } catch(err){
-            console.error('[auth] Path 1 session check threw:', err);
+            if (!(err && err._beaconFallback)) console.error('[auth] Path 1 session check threw:', err);
             // Fall through to the customer path — better than blocking.
           }
         }
@@ -6501,7 +6509,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <!-- Performance theme group -->
       <div class="igrid-theme-hd">
         <div class="igrid-theme-eye">Theme · Performance</div>
-        <div class="igrid-theme-title">How is your portfolio performing?</div>
+        <div class="igrid-theme-title" data-aud-broker="How is this client&#39;s portfolio performing?">How is the portfolio performing against benchmarks?</div>
         <div class="igrid-theme-sub">vs national + regional benchmarks</div>
       </div>
       <div class="igrid igrid-3">
@@ -6590,7 +6598,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
            client views. -->
       <div class="igrid-theme-hd" id="trg-hd" style="display:none">
         <div class="igrid-theme-eye">Theme · Triggers</div>
-        <div class="igrid-theme-title">What's coming in the next 120 days?</div>
+        <div class="igrid-theme-title" data-aud-broker="What can you act on in the next 120 days?">What is due in the next 120 days?</div>
         <div class="igrid-theme-sub">contract expirations · default-rate moves · BPS deadlines</div>
       </div>
       <div class="igrid" id="trg-grid" style="display:none">
@@ -6605,7 +6613,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
            degree days. Feeds the Bill Anomaly and M&V tiles. -->
       <div class="igrid-theme-hd" id="bil-hd" style="display:none">
         <div class="igrid-theme-eye">Theme · Bills</div>
-        <div class="igrid-theme-title">Monthly bills behind the numbers</div>
+        <div class="igrid-theme-title" data-aud-broker="The bills behind this client&#39;s numbers">The monthly bills behind these figures</div>
         <div class="igrid-theme-sub">usage files · bill PDFs · NOAA degree days</div>
       </div>
       <div class="igrid" id="bil-grid" style="display:none">
@@ -6619,7 +6627,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
            load profile, capacity tags and demand-response value. -->
       <div class="igrid-theme-hd" id="ld-hd" style="display:none">
         <div class="igrid-theme-eye">Theme · Load</div>
-        <div class="igrid-theme-title">When does this building use power?</div>
+        <div class="igrid-theme-title" data-aud-broker="When do this client&#39;s buildings draw power?">When does each building draw power?</div>
         <div class="igrid-theme-sub">interval data · peak demand · capacity tags · demand response</div>
       </div>
       <div class="igrid" id="ld-grid" style="display:none">
@@ -6634,7 +6642,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
            Price to Compare cards, so the two always agree. -->
       <div class="igrid-theme-hd" id="ptc-port-hd" style="display:none">
         <div class="igrid-theme-eye">Theme · Supply</div>
-        <div class="igrid-theme-title">Are contracts beating default service?</div>
+        <div class="igrid-theme-title" data-aud-broker="Are this client&#39;s contracts beating default service?">Are current supply contracts outperforming default service?</div>
         <div class="igrid-theme-sub">contracted supply rate vs utility price to compare</div>
       </div>
       <div class="igrid" id="ptc-port-grid" style="display:none">
@@ -6645,7 +6653,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <!-- Exposure theme group -->
       <div class="igrid-theme-hd">
         <div class="igrid-theme-eye">Theme · Exposure</div>
-        <div class="igrid-theme-title">What risks does the portfolio face?</div>
+        <div class="igrid-theme-title" data-aud-broker="What risks can you help this client manage?">What risks does the portfolio face?</div>
         <div class="igrid-theme-sub">regulatory · emissions · disclosure</div>
       </div>
       <div class="igrid">
@@ -7434,6 +7442,9 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <!-- Top stat strip — 4 portfolio-wide market KPIs -->
       <div id="mi-summary" class="mi-summary-strip" style="display:none"></div>
 
+      <!-- bundle 145: gas section — the trading desk's gas tiles, then the charts -->
+      <div class="igrid-theme-hd desk-hd"><div class="igrid-theme-eye">Natural gas</div><div class="igrid-theme-title">Henry Hub and storage</div><div class="igrid-theme-sub">EIA daily spot · weekly storage vs the 5-year range</div></div>
+      <div id="desk-root-gas"></div>
       <!-- Panel 1 — Natural Gas Storage -->
       <div class="mi-panel">
         <div class="mi-panel-hd">
@@ -7460,6 +7471,9 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         <div class="mi-insight" id="mi-hh-insight"></div>
       </div>
 
+      <!-- bundle 145: retail outlook section -->
+      <div class="igrid-theme-hd desk-hd"><div class="igrid-theme-eye">Retail outlook</div><div class="igrid-theme-title">Where retail prices are headed</div><div class="igrid-theme-sub">EIA Short-Term Energy Outlook · 18 months</div></div>
+      <div id="desk-root-steo"></div>
       <!-- Panel 4 — STEO Forecast -->
       <div class="mi-panel">
         <div class="mi-panel-hd">
@@ -7470,6 +7484,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
         <div class="mi-insight" id="mi-steo-insight"></div>
       </div>
 
+      <div class="igrid-theme-hd desk-hd"><div class="igrid-theme-eye">Renewables</div><div class="igrid-theme-title">REC markets</div></div>
       <!-- REC Markets reference (commodities mirror) -->
       <section id="recm-section" class="recm-section" aria-label="REC markets"></section>
 
@@ -8003,7 +8018,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">In PJM territory, the recent capacity auction cleared at $329.17/MW-day — the FERC ceiling — driven by data-center load growth that's added 5,400+ MW to forecasted demand. Those costs flow directly into utility default service tariffs in the form of higher "price-to-compare" rates. PA, NJ, MD, OH, and DE customers all saw double-digit default rate increases entering 2026.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Competitive supply doesn't eliminate capacity exposure entirely, but it lets a portfolio fix supply pricing at a known number for 12-36 months — converting volatile flow-through costs into a budgetable line item. Suppliers compete on margin, contract terms, and renewable content. STS runs the RFP across licensed suppliers and validates bid math against the existing tariff.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8053,7 +8068,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8070,7 +8085,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">In PJM territory, the recent capacity auction cleared at $329.17/MW-day — the FERC ceiling — driven by data-center load growth that's added 5,400+ MW to forecasted demand. Those costs flow directly into utility default service tariffs in the form of higher "price-to-compare" rates. PA, NJ, MD, OH, and DE customers all saw double-digit default rate increases entering 2026.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Competitive supply doesn't eliminate capacity exposure entirely, but it lets a portfolio fix supply pricing at a known number for 12-36 months — converting volatile flow-through costs into a budgetable line item. Suppliers compete on margin, contract terms, and renewable content. STS runs the RFP across licensed suppliers and validates bid math against the existing tariff.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8120,7 +8135,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8141,7 +8156,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Where rooftop or carport installation is feasible, on-site PV stacks multiple incentives. The federal Investment Tax Credit provides a 30% credit on system cost; MACRS depreciation accelerates tax deductions over 5 years; in some states SREC revenue creates an ongoing income stream. NREL's PVWatts modeler estimates production by exact location — the Northeast averages ~1,200 kWh/kW-yr, California's Central Valley reaches ~1,750 kWh/kW-yr.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">The decision between subscription and ownership turns on three factors: roof condition (age, structure, shading), tax appetite (ITC and depreciation only matter if the entity has tax liability to offset), and utility policy (community solar availability, net metering caps, demand-charge structures). Multi-site portfolios most often end up with a mix — community solar where on-site is impractical, ownership where the math is strongest.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8191,7 +8206,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8208,7 +8223,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Where rooftop or carport installation is feasible, on-site PV stacks multiple incentives. The federal Investment Tax Credit provides a 30% credit on system cost; MACRS depreciation accelerates tax deductions over 5 years; in some states SREC revenue creates an ongoing income stream. NREL's PVWatts modeler estimates production by exact location — the Northeast averages ~1,200 kWh/kW-yr, California's Central Valley reaches ~1,750 kWh/kW-yr.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">The decision between subscription and ownership turns on three factors: roof condition (age, structure, shading), tax appetite (ITC and depreciation only matter if the entity has tax liability to offset), and utility policy (community solar availability, net metering caps, demand-charge structures). Multi-site portfolios most often end up with a mix — community solar where on-site is impractical, ownership where the math is strongest.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8258,7 +8273,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8279,7 +8294,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Demand ratchet errors are the largest single source: when a tariff applies a minimum billable demand based on a high prior month, accounting systems often miss the reset window. Tariff misclassification occurs when a commercial site is billed on a general-service tariff when its actual usage profile qualifies for industrial rates (or vice versa). Missed sales-tax exemptions affect manufacturing and certain industrial uses. Meter multiplier errors are rarer but produce the largest single recoveries when found.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Most state Public Utility Commissions allow retrospective refunds for 2-4 years from the discovery date. The audit process involves pulling meter and billing records back through the lookback window, recalculating bills against the correct tariff, and filing a recovery claim through the utility's billing dispute channel. STS audit engagements are contingency-based: a percentage of recovered funds, no recovery means no fee.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8329,7 +8344,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8346,7 +8361,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Demand ratchet errors are the largest single source: when a tariff applies a minimum billable demand based on a high prior month, accounting systems often miss the reset window. Tariff misclassification occurs when a commercial site is billed on a general-service tariff when its actual usage profile qualifies for industrial rates (or vice versa). Missed sales-tax exemptions affect manufacturing and certain industrial uses. Meter multiplier errors are rarer but produce the largest single recoveries when found.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Most state Public Utility Commissions allow retrospective refunds for 2-4 years from the discovery date. The audit process involves pulling meter and billing records back through the lookback window, recalculating bills against the correct tariff, and filing a recovery claim through the utility's billing dispute channel. STS audit engagements are contingency-based: a percentage of recovered funds, no recovery means no fee.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8396,7 +8411,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8417,7 +8432,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">A facility participates by registering a guaranteed kW reduction with an ISO-approved aggregator. When the grid operator calls an event — usually with 2-hour advance notice — participating sites curtail their committed load by deferring HVAC, dimming non-critical lighting, or shifting flexible processes. Performance is measured against a customer-baseline-load formula and settled monthly.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Capacity payments are made for availability, not just performance — revenue accrues whether or not events are called. PJM 2026/27 cleared at $329.17/MW-day RTO-wide. NYISO Zone J consistently trades highest in the country. ERCOT's Emergency Response Service operates differently (energy-only payments). Programs and rates vary materially by ISO.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8467,7 +8482,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8484,7 +8499,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">A facility participates by registering a guaranteed kW reduction with an ISO-approved aggregator. When the grid operator calls an event — usually with 2-hour advance notice — participating sites curtail their committed load by deferring HVAC, dimming non-critical lighting, or shifting flexible processes. Performance is measured against a customer-baseline-load formula and settled monthly.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Capacity payments are made for availability, not just performance — revenue accrues whether or not events are called. PJM 2026/27 cleared at $329.17/MW-day RTO-wide. NYISO Zone J consistently trades highest in the country. ERCOT's Emergency Response Service operates differently (energy-only payments). Programs and rates vary materially by ISO.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8534,7 +8549,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8555,7 +8570,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Most rebates fall into three families: prescriptive (fixed $/unit for specific equipment like LED tubes or VFD drives), custom (engineered savings calculations for non-standard projects), and performance-based (paid against measured savings over multiple years). Mass Save in Massachusetts pays up to $1.40/sqft across full-stack retrofits. PA Act 129 funds programs through PECO, Duquesne, PPL, and FirstEnergy at slightly lower density.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Federal incentives stack on top of utility rebates without offset in most cases. The IRA's §179D commercial buildings deduction allows up to $5/sqft for qualifying retrofits; §48 ITC provides a 30% credit for solar and storage. Pre-approval before equipment purchase is required by most utility programs — a common reason captures fail.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8605,7 +8620,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8622,7 +8637,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Most rebates fall into three families: prescriptive (fixed $/unit for specific equipment like LED tubes or VFD drives), custom (engineered savings calculations for non-standard projects), and performance-based (paid against measured savings over multiple years). Mass Save in Massachusetts pays up to $1.40/sqft across full-stack retrofits. PA Act 129 funds programs through PECO, Duquesne, PPL, and FirstEnergy at slightly lower density.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Federal incentives stack on top of utility rebates without offset in most cases. The IRA's §179D commercial buildings deduction allows up to $5/sqft for qualifying retrofits; §48 ITC provides a 30% credit for solar and storage. Pre-approval before equipment purchase is required by most utility programs — a common reason captures fail.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8672,7 +8687,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#f59e0b;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8693,7 +8708,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Voluntary national pricing has held in the $1.50-$3.00/MWh range for five years, supported by Green-e certification. Compliance markets diverge sharply. NJ Class I SRECs (carved out for solar) trade at roughly $212/MWh, protected by the state's Solar Alternative Compliance Payment ceiling. MA Class I RECs trade at ~$36/MWh. PA AEPS Tier 1 settles around $7.50/MWh.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">For corporate procurement, the relevant question is which framework the disclosure target requires. CDP, SBTi, and GHG Protocol all accept Green-e voluntary RECs for Scope 2 "market-based" accounting. State-level compliance obligations require RECs from that state's RPS-eligible facilities. Bundled vs. unbundled, vintage rules, and additionality claims differ by program.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8743,7 +8758,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8760,7 +8775,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Voluntary national pricing has held in the $1.50-$3.00/MWh range for five years, supported by Green-e certification. Compliance markets diverge sharply. NJ Class I SRECs (carved out for solar) trade at roughly $212/MWh, protected by the state's Solar Alternative Compliance Payment ceiling. MA Class I RECs trade at ~$36/MWh. PA AEPS Tier 1 settles around $7.50/MWh.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">For corporate procurement, the relevant question is which framework the disclosure target requires. CDP, SBTi, and GHG Protocol all accept Green-e voluntary RECs for Scope 2 "market-based" accounting. State-level compliance obligations require RECs from that state's RPS-eligible facilities. Bundled vs. unbundled, vintage rules, and additionality claims differ by program.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#2dd4bf;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#2dd4bf;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8810,7 +8825,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#2dd4bf;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#2dd4bf;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8831,7 +8846,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">NYC's Local Law 97 sets caps in kg CO₂e per square foot, varying by occupancy. A medical office building's Period 1 cap of 11.93 kg/sqft drops to 4.96 kg/sqft in 2030 — a 58% reduction. Penalties are $268 per metric ton CO₂e over the cap, per year. Boston BERDO 2.0 follows a similar trajectory at $234/ton; DC BEPS uses an EUI-based fine schedule.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Compliance options vary by jurisdiction. NYC accepts only NYC-delivered (Tier 4) RECs against electricity emissions, with first supply arriving 2026–2027; Boston allows Massachusetts Class I RECs and Alternative Compliance Payments. Most cities require annual benchmarking submissions in the spring. About 9% of NYC LL97-covered buildings exceeded their 2024 caps; analyses suggest roughly 57% will exceed 2030 caps without intervention.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8881,7 +8896,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8898,7 +8913,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">NYC's Local Law 97 sets caps in kg CO₂e per square foot, varying by occupancy. A medical office building's Period 1 cap of 11.93 kg/sqft drops to 4.96 kg/sqft in 2030 — a 58% reduction. Penalties are $268 per metric ton CO₂e over the cap, per year. Boston BERDO 2.0 follows a similar trajectory at $234/ton; DC BEPS uses an EUI-based fine schedule.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Compliance options vary by jurisdiction. NYC accepts only NYC-delivered (Tier 4) RECs against electricity emissions, with first supply arriving 2026–2027; Boston allows Massachusetts Class I RECs and Alternative Compliance Payments. Most cities require annual benchmarking submissions in the spring. About 9% of NYC LL97-covered buildings exceeded their 2024 caps; analyses suggest roughly 57% will exceed 2030 caps without intervention.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#60a5fa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#60a5fa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -8948,7 +8963,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#60a5fa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#60a5fa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -8969,7 +8984,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Mandatory frameworks vary by jurisdiction. The EU's Corporate Sustainability Reporting Directive (CSRD) applies to roughly 50,000 companies, including US subsidiaries with EU revenue above €150M. The UK, Japan, New Zealand, Australia, and Canada have adopted TCFD-aligned mandatory disclosure. The US SEC's domestic climate rule remains stayed pending litigation, but California's SB 253 and SB 261 impose Scope 1+2+3 disclosure on companies with >$1B revenue doing business in the state.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">For most multi-site operators, the practical question is converting utility billing and metering data into the inventory format each framework requires. Scope 2 is the simplest (purchased electricity, market-based or location-based methodology). Scope 1 covers stationary combustion (natural gas) and mobile sources. Scope 3 — supply chain and downstream emissions — is where most reporting effort lives, and is increasingly demanded by procurement teams at Fortune 500 buyers.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9019,7 +9034,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9036,7 +9051,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">Mandatory frameworks vary by jurisdiction. The EU's Corporate Sustainability Reporting Directive (CSRD) applies to roughly 50,000 companies, including US subsidiaries with EU revenue above €150M. The UK, Japan, New Zealand, Australia, and Canada have adopted TCFD-aligned mandatory disclosure. The US SEC's domestic climate rule remains stayed pending litigation, but California's SB 253 and SB 261 impose Scope 1+2+3 disclosure on companies with >$1B revenue doing business in the state.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">For most multi-site operators, the practical question is converting utility billing and metering data into the inventory format each framework requires. Scope 2 is the simplest (purchased electricity, market-based or location-based methodology). Scope 1 covers stationary combustion (natural gas) and mobile sources. Scope 3 — supply chain and downstream emissions — is where most reporting effort lives, and is increasingly demanded by procurement teams at Fortune 500 buyers.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#a78bfa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#a78bfa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9086,7 +9101,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#a78bfa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#a78bfa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -9107,7 +9122,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">The largest wins usually come from four areas: lighting (LED retrofits with networked controls capture 50-70% lighting energy reduction), HVAC controls (BAS upgrades, demand-controlled ventilation, optimized scheduling), envelope (air sealing, attic insulation, window film for older glazing), and retro-commissioning (fixing what was installed wrong or has drifted over time). Each measure has its own simple payback range.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Energy-as-a-Service (EaaS) structures convert these projects from capex to opex by financing against the savings stream itself. STS retains ownership of upgraded equipment for a contractual term (typically 7-10 years), the building owner pays only a portion of realized savings, and ownership transfers at end of term. The structure eliminates the upfront capital barrier that historically blocked smaller portfolios from comprehensive retrofits.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9157,7 +9172,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#add540;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9174,7 +9189,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:18px">The largest wins usually come from four areas: lighting (LED retrofits with networked controls capture 50-70% lighting energy reduction), HVAC controls (BAS upgrades, demand-controlled ventilation, optimized scheduling), envelope (air sealing, attic insulation, window film for older glazing), and retro-commissioning (fixing what was installed wrong or has drifted over time). Each measure has its own simple payback range.</p>
     <p style="font-size:14px;color:rgba(255,255,255,.62);line-height:1.7;max-width:600px;margin-bottom:34px">Energy-as-a-Service (EaaS) structures convert these projects from capex to opex by financing against the savings stream itself. STS retains ownership of upgraded equipment for a contractual term (typically 7-10 years), the building owner pays only a portion of realized savings, and ownership transfers at end of term. The structure eliminates the upfront capital barrier that historically blocked smaller portfolios from comprehensive retrofits.</p>
     <div style="display:flex;gap:12px;margin-bottom:60px">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#60a5fa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 28px;border-radius:10px;cursor:pointer;pointer-events:auto;transition:all .2s;background:#60a5fa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Discovery Call &#8594;</a>
     </div>
   </div>
 </div>
@@ -9224,7 +9239,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
       <p style="font-size:15px;color:rgba(255,255,255,.65);line-height:1.65;max-width:420px">Contact your account manager to begin enrollment or request a detailed assessment.</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;min-width:200px;position:relative;z-index:1">
-      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#60a5fa;color:#0a1f00;border:none" href="https://cal.com/gridientgroup" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
+      <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:800;padding:13px 24px;border-radius:10px;cursor:pointer;pointer-events:auto;justify-content:center;background:#60a5fa;color:#0a1f00;border:none" href="https://gridientsuite.com/schedule" target="_blank" rel="noopener noreferrer">Schedule Now &#8594;</a>
       <a style="text-decoration:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;padding:11px 20px;border-radius:9px;cursor:pointer;pointer-events:auto;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)" href="mailto:matt.helland@stsusgroup.com?subject=STS%20Portal%20Inquiry" data-cfg-mailto="rep">Message My Rep &#8594;</a>
     </div>
   </div>
@@ -9308,9 +9323,6 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
     </div>
     <div class="modal-body" id="opp-learn-body" style="overflow-y:auto;flex:1;min-height:0"></div>
     <div style="display:flex;gap:8px;padding:14px 24px 20px 24px;justify-content:flex-end;flex-wrap:wrap;background:var(--panel,#0F1729);border-top:1px solid var(--line,rgba(232,238,245,.07));flex-shrink:0;border-radius:0 0 14px 14px">
-      <button id="opp-learn-video" style="background:rgba(173,213,64,.08);border:1px solid rgba(173,213,64,.32);color:#add540;padding:9px 16px;border-radius:7px;font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;font-family:inherit;white-space:nowrap"
-              onmouseover="this.style.background='rgba(173,213,64,.16)';this.style.borderColor='rgba(173,213,64,.55)'"
-              onmouseout="this.style.background='rgba(173,213,64,.08)';this.style.borderColor='rgba(173,213,64,.32)'">Schedule Video</button>
       <button id="opp-learn-call" style="background:linear-gradient(180deg,#d8ff5e 0%,#b8e045 50%,#a4cc36 100%);border:none;color:#0A1F3D;padding:9px 18px;border-radius:7px;font-size:12px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:all .15s;font-family:inherit;white-space:nowrap;box-shadow:0 2px 10px rgba(173,213,64,.35)"
               onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(173,213,64,.5)'"
               onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 10px rgba(173,213,64,.35)'">Request a Call</button>
@@ -9348,6 +9360,35 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
   <script src="program_pages.js"></script>
 <script src="sqft.js"></script>
 <script src="control_dock.js"></script>
+<script>
+/* bundle 145: audience-aware headings. The text in the page is the client
+   wording (formal); data-aud-broker holds the broker wording. */
+(function(){
+  var t = null;
+  function paint(){ t = null; try {
+    var broker = !document.body.classList.contains('client-view');
+    document.querySelectorAll('[data-aud-broker]').forEach(function(el){
+      if (!el.hasAttribute('data-aud-client')) el.setAttribute('data-aud-client', el.textContent);
+      var want = broker ? el.getAttribute('data-aud-broker') : el.getAttribute('data-aud-client');
+      if (el.textContent !== want) el.textContent = want;
+    });
+  } catch(e){} }
+  function soon(){ if (!t) t = setTimeout(paint, 40); }
+  function boot(){ paint(); new MutationObserver(soon).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+/* bundle 143: program cards must never show blank buttons. If the normal
+   render path was skipped (e.g. a client that failed to load), paint them. */
+(function(){
+  function fix(){ try {
+    if (typeof PD === 'undefined' || typeof renderCard !== 'function') return;
+    var b = document.querySelector('.prog-btn');
+    if (b && !b.textContent.trim()) Object.keys(PD).forEach(function(p){ try { renderCard(p); } catch(e){} });
+  } catch(e){} }
+  setTimeout(fix, 2500); setTimeout(fix, 6000);
+  document.addEventListener('click', function(e){ if (e.target && e.target.closest && e.target.closest('.vbtn')) setTimeout(fix, 60); }, true);
+})();
+</script>
 
   <!-- Beacon Pro (Tier 2) modules — physics-based reference building, Scope 1/2
        emissions, weather normalization, VPP opportunity, bill anomaly detection.
@@ -9943,8 +9984,8 @@ function _oppScheduleVideo(pid) {
   // Routes to the Gridient cal.com booking page (cal.com swap).
   // bundle 131: a white-labelled firm's clients email that firm instead.
   // bundle 139: the firm's own booking link (Admin → Brand) wins; see brand.js schedule().
-  if (window.BeaconBrand && window.BeaconBrand.schedule && window.BeaconBrand.schedule('Schedule a video call')) return;
-  window.open('https://cal.com/gridientgroup', '_blank', 'noopener');
+  if (window.BeaconBrand && window.BeaconBrand.schedule && window.BeaconBrand.schedule('Schedule a call')) return;
+  window.open('https://gridientsuite.com/schedule', '_blank', 'noopener');
 }
 
 // Long-form program detail used by the Learn More popup. Each entry feeds
@@ -10267,7 +10308,7 @@ function _oppLearnMore(pid) {
 
   // Wire footer CTAs to the same handlers as the cards
   document.getElementById('opp-learn-call').onclick    = function(){ _oppCloseLearnMore(); _oppRequestCall(pid); };
-  document.getElementById('opp-learn-video').onclick   = function(){ _oppCloseLearnMore(); _oppScheduleVideo(pid); };
+  var _olv = document.getElementById('opp-learn-video'); if (_olv) _olv.onclick = function(){ _oppCloseLearnMore(); _oppScheduleVideo(pid); };
 
   document.getElementById('opp-learn-modal').classList.add('on');
 }
@@ -15652,6 +15693,23 @@ window._renderLocationPopup = function (locationId) {
     // Avoid reloading if already pointing here (e.g. tab re-renders).
     if (iframe.getAttribute('src') !== src) iframe.src = src;
   }
+
+  // bundle 145: tell the map which slice of it is on screen (its pop-ups centre there)
+  function _mapViewport(){
+    try {
+      var f = document.getElementById('portfolio-map-iframe') || document.querySelector('iframe[src*="portfolio_map.html"]');
+      if (!f || !f.contentWindow || f.style.display === 'none') return;
+      var tb = document.querySelector('.topbar'), hb = tb ? Math.max(0, tb.getBoundingClientRect().bottom) : 0;
+      var r = f.getBoundingClientRect(), top = Math.max(0, hb - r.top), bot = Math.min(r.height, window.innerHeight - r.top);
+      if (bot <= top) return;
+      f.contentWindow.postMessage({ type: 'beacon-viewport', top: Math.round(top), height: Math.round(bot - top) }, '*');
+    } catch (e) {}
+  }
+  var _mvT = null;
+  function _mapViewportSoon(){ if (_mvT) return; _mvT = setTimeout(function(){ _mvT = null; _mapViewport(); }, 60); }
+  window.addEventListener('scroll', _mapViewportSoon, { passive: true });
+  window.addEventListener('resize', _mapViewportSoon);
+  setInterval(_mapViewport, 1500);
 
   // Listen for postMessages from inside the iframe and open the Beacon
   // Location detail page when one of its rows / buttons is clicked.

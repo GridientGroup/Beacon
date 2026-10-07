@@ -58,7 +58,7 @@
         field('Support email (also reply-to on emails)', 'email', f.brand_email, 'help@firm.com', 'email') +
         field('Phone', 'phone', f.brand_phone, '800.555.0100') +
         field('Website', 'website', f.brand_website, 'firm.com') +
-        field('“Schedule a call” link (bundle 139)', 'calendar', f.brand_calendar, 'https://calendly.com/firm/15min', 'url') + '</div>' +
+        field('“Schedule a call” link (bundle 139)', 'calendar', f.brand_calendar, 'Blank = gridientsuite.com/schedule', 'url') + '</div>' +
       '<div><label style="' + LBL + '">Accent colour<input data-f="accent" type="color" value="' + esc(f.brand_accent || '#ADD540') + '" style="' + INP + ';height:34px;padding:2px"></label>' +
         '<label style="' + LBL + '">Second colour (highlights; a dark one tints backgrounds)<input data-f="accent2" type="color" value="' + esc(f.brand_accent2 || '#FFB900') + '" style="' + INP + ';height:34px;padding:2px"></label>' +
         '<div style="font-size:11px;color:var(--mu);margin-bottom:4px">Logo (PNG, JPG, SVG or WebP, under 300 KB; wide logos look best)</div>' +

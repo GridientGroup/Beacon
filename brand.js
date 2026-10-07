@@ -30,7 +30,8 @@
   var DEF = null, CUR = null, observer = null, busy = false;
   // bundle 139: the firm's booking link for every "Schedule a call" button. Kept apart
   // from the brand keys so a firm can set only a calendar and keep the default look.
-  var CAL = null, GRIDIENT_CAL = 'https://cal.com/gridientgroup';
+  // bundle 144: every firm without its own link books through the Gridient scheduler.
+  var GRIDIENT_CAL = 'https://gridientsuite.com/schedule', CAL = GRIDIENT_CAL;
   var KEYS = ['short', 'full', 'logo', 'accent', 'accent2', 'email', 'phone', 'website'];
   function cfg() { try { return (typeof BROKERAGE_CONFIG !== 'undefined') ? BROKERAGE_CONFIG : null; } catch (e) { return null; } }
   function sb() { return window._beaconSb || window.sb || null; }
@@ -55,7 +56,7 @@
   // ── accent colour: Beacon's lime is also hard-coded in CSS and inline styles
   var ACC = null;  // { hex, rgb: 'r,g,b', dim }
   var LIGHT = ['#c4f048', '#c4eb55', '#b0d840', '#d8ff5e', '#b8e045'], DARK = ['#7a9a2a', '#92b82d', '#9bc432', '#9dc535', '#8fb82d', '#a4cc36'];
-  var LIME_RE = /#add540|#7a9a2a|#c4f048|#c4eb55|#b0d840|#d8ff5e|#b8e045|#a4cc36|#92b82d|#9bc432|#9dc535|#8fb82d|173,\s*213,\s*64/gi;
+  var LIME_RE = /#add540|#7a9a2a|#c4f048|#c4eb55|#b0d840|#d8ff5e|#b8e045|#a4cc36|#92b82d|#9bc432|#9dc535|#8fb82d|#b8e04a|#bde850|#d4ff55|#d0ff55|#e6ff7a|#b9e07a|173,\s*213,\s*64/gi;
   // Green→amber→red risk scales keep their meaning: never recolour inside them.
   var SCALE_RE = /linear-gradient\([^;{}]*?#ef4444[^;{}]*?\)/gi;
   // ── second accent (bundle 141): Beacon's gold highlight colour, per firm ──
@@ -170,7 +171,7 @@
   }
   function fixCal(root) {
     if (!root || !root.querySelectorAll || (!CAL && !CUR)) return;
-    root.querySelectorAll('a[href*="cal.com/gridientgroup"]').forEach(function (a) {
+    root.querySelectorAll('a[href*="cal.com/gridientgroup"], a[href*="gridientsuite.com/schedule"]').forEach(function (a) {
       var to = CAL || (CUR && CUR.email ? 'mailto:' + CUR.email + '?subject=' + encodeURIComponent('Schedule a call') : '');
       if (to) { a.setAttribute('href', to); if (/^mailto:/.test(to)) a.removeAttribute('target'); }
       else a.style.display = 'none';
@@ -187,7 +188,7 @@
     return false;
   }
   function setCal(v) {
-    var u = String(v || '').trim(); CAL = /^https:\/\/[^\s<>"]+$/.test(u) ? u : null;
+    var u = String(v || '').trim(); CAL = /^https:\/\/[^\s<>"]+$/.test(u) ? u : GRIDIENT_CAL;
     if (CAL || CUR) { busy = true; try { fixCal(document.body); } finally { busy = false; } watch(); }
   }
   function rewrite(root) {
@@ -268,7 +269,7 @@
       c.brandShort = short; c.brandFull = full;
       c.pageTitle = short + ' Client Portal · Beacon';
       c.footerCopy = '© ' + new Date().getFullYear() + ' ' + full;
-      c.rep = { name: full, initials: short.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase(), role: 'Your energy advisor', email: CUR.email || '', subject: short + ' Portal Inquiry' };
+      c.rep = { name: full, initials: (short.trim().split(/\s+/).length > 1 ? short.trim().split(/\s+/).map(function (w) { return w.charAt(0); }).join('') : short.replace(/[^A-Za-z]/g, '')).replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase(), role: 'Your energy advisor', email: CUR.email || '', subject: short + ' Portal Inquiry' };
       if (c.caseStudies) Object.keys(c.caseStudies).forEach(function (k) { c.caseStudies[k] = { headline: '', body: '', result: '' }; });
     }
     c.contactEmail = CUR.email || ''; c.contactPhone = CUR.phone || ''; c.contactWebsite = CUR.website || '';
@@ -360,7 +361,7 @@
       '<div class="icard" style="min-width:0"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">' +
         '<div>' + f('Short name (replaces “STS” in copy)', 'short', 'e.g. Cardinal') + f('Full name', 'full', 'e.g. Cardinal Energy Advisors') +
           f('Support email', 'email', 'help@yourfirm.com', 'email') + f('Phone', 'phone', '800.555.0100') + f('Website', 'website', 'yourfirm.com') +
-          f('“Schedule a call” link (Calendly, Cal.com, HubSpot, Outlook bookings…)', 'calendar', 'https://calendly.com/yourfirm/15min', 'url') + '</div>' +
+          f('“Schedule a call” link (Calendly, Cal.com, HubSpot, Outlook bookings…)', 'calendar', 'Blank = gridientsuite.com/schedule', 'url') + '</div>' +
         '<div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label style="display:block;font-size:11px;color:var(--mu);margin-bottom:8px">Accent colour<input data-br="accent" type="color" value="' + esc(b.accent || '#ADD540') + '" style="' + INP + ';height:34px;padding:2px"' + (mgr ? '' : ' disabled') + '></label>' +
           '<label style="display:block;font-size:11px;color:var(--mu);margin-bottom:8px">Second colour (highlights)<input data-br="accent2" type="color" value="' + esc(b.accent2 || '#FFB900') + '" style="' + INP + ';height:34px;padding:2px"' + (mgr ? '' : ' disabled') + '></label></div>' +
           '<div class="loc-card-srcline" data-br-acc-note style="margin:-2px 0 10px">' + accNote(b.accent, b.accent2) + '</div>' +

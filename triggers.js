@@ -450,16 +450,106 @@
     }
     return null;
   }
-  function listRow(ev, t0) {
-    var id = evLink(ev);
+  // ── bundle 145: the 120-day view, redesigned ─────────────────────────────
+  // A swimlane track (contracts · default rates · BPS) across the window, then
+  // the list grouped by month with each item's dollar figure on the right.
+  function kindColor(e) {
+    if (e.kind === 'contract') return e.days <= 30 ? '#ef4444' : '#F59E0B';
+    if (e.kind === 'bps') return '#3B82F6';
+    if (e.sub === 'reset') return '#94A3B8';
+    return e.pct > 0 ? '#F59E0B' : '#22c55e';
+  }
+  function evValue(e, t0) {
+    if (e.kind === 'contract') {
+      if (e.roll != null) return { t: signedMoney(e.roll) + '/yr', n: Math.abs(e.roll), s: 'if it rolls to default' };
+      if (e.spend) return { t: '~' + money(e.spend) + '/yr', n: e.spend, s: 'spend up for renewal' };
+      return { t: e.days + 'd', n: 0, s: '' };
+    }
+    if (e.kind === 'rate') {
+      if (e.sub === 'reset') return { t: 'Price TBA', n: 0, s: 'next default not published' };
+      return { t: (e.yr != null ? signedMoney(e.yr) + '/yr' : (e.pct > 0 ? '+' : '') + e.pct.toFixed(1) + '%'), n: Math.abs(e.yr || 0), s: (e.pct > 0 ? '+' : '') + e.pct.toFixed(1) + '% default' };
+    }
+    return e.amount ? { t: money(e.amount) + (e.amountKind === 'max-fine' ? ' max' : '/yr'), n: e.amount, s: e.amountKind === 'max-fine' ? 'maximum fine' : 'est. penalty' } : { t: fmtDate(e.date, t0), n: 0, s: '' };
+  }
+  function css120() {
+    if (document.getElementById('trg120-css')) return;
+    var st = document.createElement('style'); st.id = 'trg120-css';
+    st.textContent =
+      '.t120-track{position:relative;margin:14px 0 6px;padding:10px 14px 26px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.06)}' +
+      '.t120-lane{display:flex;align-items:center;height:30px}' +
+      '.t120-lane+.t120-lane{border-top:1px dashed rgba(255,255,255,.06)}' +
+      '.t120-ll{flex:0 0 108px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mu,#8b98ad)}' +
+      '.t120-lt{position:relative;flex:1;height:100%}' +
+      '.t120-dot{position:absolute;top:50%;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;border:2px solid rgba(10,14,26,.9);transition:transform .15s,box-shadow .15s}' +
+      '.t120-dot:hover{transform:translate(-50%,-50%) scale(1.35);z-index:3}' +
+      '.t120-axis{position:absolute;left:122px;right:14px;bottom:6px;height:16px}' +
+      '.t120-tick{position:absolute;bottom:0;font-size:9.5px;letter-spacing:.1em;color:var(--mu,#8b98ad);transform:translateX(-50%);white-space:nowrap}' +
+      '.t120-grid{position:absolute;top:10px;bottom:22px;width:1px;background:rgba(255,255,255,.07)}' +
+      '.t120-now{position:absolute;top:4px;bottom:20px;width:2px;border-radius:2px;background:var(--lime,#ADD540);box-shadow:0 0 10px var(--lime,#ADD540)}' +
+      '.t120-now::after{content:"TODAY";position:absolute;top:-2px;left:6px;font-size:8.5px;letter-spacing:.14em;color:var(--lime,#ADD540)}' +
+      '.t120-mo{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 4px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.t120-mo b{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#fff}' +
+      '.t120-mo span{font-size:11px;color:var(--mu,#8b98ad)}' +
+      '.t120-row{display:grid;grid-template-columns:70px 118px minmax(0,1fr) auto;gap:4px 14px;align-items:start;margin-top:6px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-left:3px solid var(--k);transition:background .15s,transform .15s}' +
+      '.t120-row:hover{background:rgba(255,255,255,.045)}' +
+      '.t120-row.flash{box-shadow:0 0 0 1px var(--k),0 0 22px -4px var(--k)}' +
+      '.t120-val{text-align:right;white-space:nowrap}.t120-val b{display:block;font-size:14px;color:var(--k)}.t120-val i{font-style:normal;font-size:10px;color:var(--mu,#8b98ad)}' +
+      '@media (max-width:760px){.t120-row{grid-template-columns:62px minmax(0,1fr)}.t120-row>:nth-child(2){display:none}.t120-val{grid-column:2;text-align:left}.t120-ll{flex-basis:70px}.t120-axis{left:84px}}';
+    document.head.appendChild(st);
+  }
+  function track(res, shown) {
+    var t0 = res.asOf, W = WINDOW_DAYS;
+    function pos(d) { return Math.max(0, Math.min(100, d / W * 100)); }
+    var lanes = [['contract', 'Contracts'], ['rate', 'Default rates'], ['bps', 'BPS']].filter(function (l) { return shown.some(function (e) { return e.kind === l[0]; }); });
+    var maxN = Math.max.apply(null, shown.map(function (e) { return evValue(e, t0).n; }).concat([1]));
+    var html = '<div class="t120-track">';
+    var ticks = '', grids = '';
+    for (var i = 0; i < 6; i++) {
+      var m = new Date(t0.getFullYear(), t0.getMonth() + i, 1), dd = daysBetween(t0, m);
+      if (dd <= 0 || dd > W) continue;
+      ticks += '<span class="t120-tick" style="left:' + pos(dd) + '%">' + m.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() + '</span>';
+      grids += '<span class="t120-grid" style="left:calc(122px + (100% - 136px) * ' + (pos(dd) / 100) + ')"></span>';
+    }
+    html += grids + '<span class="t120-now" style="left:122px"></span>';
+    lanes.forEach(function (l) {
+      html += '<div class="t120-lane"><span class="t120-ll">' + l[1] + '</span><div class="t120-lt">';
+      shown.forEach(function (e, idx) {
+        if (e.kind !== l[0]) return;
+        var v = evValue(e, t0), sz = 10 + Math.round(Math.sqrt(v.n / maxN) * 12), c = kindColor(e);
+        var tip = fmtDate(e.date, t0) + ' · ' + (e.kind === 'contract' ? where(e.a) : e.title) + (v.n ? ' · ' + v.t : '');
+        html += '<span class="t120-dot" data-t120="' + idx + '" title="' + esc(tip) + '" style="left:' + pos(Math.max(0, e.days)) + '%;width:' + sz + 'px;height:' + sz + 'px;background:' + c + ';box-shadow:0 0 12px -2px ' + c + '"></span>';
+      });
+      html += '</div></div>';
+    });
+    return html + '<div class="t120-axis">' + ticks + '</div></div>';
+  }
+  function listRow(ev, t0, idx) {
+    var id = evLink(ev), c = kindColor(ev), v = evValue(ev, t0);
     var head = ev.kind === 'contract' ? esc(where(ev.a)) : ev.kind === 'bps' ? esc(ev.title) + ' · ' + esc(evWhere(ev)) : esc(ev.title);
-    return '<div class="trg-row" data-kind="' + ev.kind + '"' + (id ? ' data-loc="' + esc(id) + '" title="Open location"' : '') +
-      ' style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05)' + (id ? ';cursor:pointer' : '') + '">' +
-      '<div style="flex:0 0 74px"><div class="bm-row-val" style="font-size:14px">' + fmtDate(ev.date, t0) + '</div>' +
+    return '<div class="trg-row t120-row" data-kind="' + ev.kind + '" data-t120-row="' + idx + '"' + (id ? ' data-loc="' + esc(id) + '" title="Open location"' : '') +
+      ' style="--k:' + c + (id ? ';cursor:pointer' : '') + '">' +
+      '<div><div class="bm-row-val" style="font-size:14px">' + fmtDate(ev.date, t0).replace(/, \d{4}$/, '') + '</div>' +
         '<div class="bm-row-lbl" style="font-size:10px">' + whenTxt(ev, t0) + '</div></div>' +
-      '<div style="flex:0 0 112px;padding-top:1px">' + pill(ev) + (ev.kind === 'contract' && ev.compound.length ? '<div style="margin-top:4px"><span class="loc-pill amber">+ Rate move</span></div>' : '') + '</div>' +
-      '<div style="flex:1 1 240px;min-width:0"><div style="font-size:12px;color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + head + '</div>' +
-        '<div class="loc-card-sub" style="font-size:11px;overflow-wrap:anywhere">' + detail(ev, t0) + '</div></div></div>';
+      '<div style="padding-top:1px">' + pill(ev) + (ev.kind === 'contract' && ev.compound.length ? '<div style="margin-top:4px"><span class="loc-pill amber">+ Rate move</span></div>' : '') + '</div>' +
+      '<div style="min-width:0"><div style="font-size:12.5px;color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + head + '</div>' +
+        '<div class="loc-card-sub" style="font-size:11px;overflow-wrap:anywhere">' + detail(ev, t0) + '</div></div>' +
+      '<div class="t120-val">' + (v.n ? '<b>' + v.t + '</b><i>' + esc(v.s) + '</i>' : '<i>' + esc(v.s) + '</i>') + '</div></div>';
+  }
+  function monthGroups(shown, t0) {
+    var out = '', cur = null, buf = [], kinds = {};
+    function flush() {
+      if (!cur) return;
+      var parts = [['contract', 'contract'], ['rate', 'default-rate move'], ['bps', 'BPS deadline']].filter(function (k) { return kinds[k[0]]; })
+        .map(function (k) { return kinds[k[0]] + ' ' + k[1] + (kinds[k[0]] === 1 ? '' : 's'); });
+      out += '<div class="t120-mo"><b>' + cur + '</b><span>' + parts.join(' · ') + '</span></div>' + buf.join('');
+    }
+    shown.forEach(function (e, idx) {
+      var d = e.days < 0 ? t0 : e.date, k = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (k !== cur) { flush(); cur = k; buf = []; kinds = {}; }
+      buf.push(listRow(e, t0, idx)); kinds[e.kind] = (kinds[e.kind] || 0) + 1;
+    });
+    flush();
+    return out;
   }
 
   function tileA(res) {
@@ -525,7 +615,8 @@
         ';border:1px solid ' + (on ? 'rgba(173,213,64,0.35)' : 'var(--b1)') + ';border-radius:14px;padding:3px 10px;font-size:10.5px;cursor:pointer">' + t[1] + ' · ' + counts[t[0]] + '</button>';
     }).join('');
     var shown = ev.filter(function (e) { return _filter === 'all' || e.kind === _filter; });
-    var body = shown.length ? shown.map(function (e) { return listRow(e, t0); }).join('')
+    css120();
+    var body = shown.length ? track(res, shown) + monthGroups(shown, t0)
       : '<div class="loc-card-sub" style="padding:10px 0">Nothing in this category in the next 120 days.</div>';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
         '<div class="ic-lbl" style="margin:0">☰ Timeline · ' + fmtDate(t0, t0) + ' to ' + fmtDate(res.end, t0) + '</div>' +
@@ -566,6 +657,13 @@
     if (!C) return;
     C.innerHTML = listCard(res);
     bindLinks(C);
+    Array.prototype.forEach.call(C.querySelectorAll('[data-t120]'), function (d) {
+      d.addEventListener('click', function () {
+        var r = C.querySelector('[data-t120-row="' + d.getAttribute('data-t120') + '"]'); if (!r) return;
+        r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        r.classList.add('flash'); setTimeout(function () { r.classList.remove('flash'); }, 1600);
+      });
+    });
     Array.prototype.forEach.call(C.querySelectorAll('[data-trg-filter]'), function (b) {
       b.addEventListener('click', function () { _filter = b.getAttribute('data-trg-filter'); paintList(res); });
     });

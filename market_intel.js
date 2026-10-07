@@ -137,8 +137,16 @@
     return (n >= 0 ? '+' : '') + Number(n).toFixed(decimals) + '%';
   }
   function asDate(iso) { return new Date(iso); }
-  function dateStr(d) { return d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); }
-  function monthStr(d) { return d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }); }
+  // bundle 145: the STEO fetcher doesn't tag forecast rows, so a month from the
+  // current one onward counts as forecast unless the row says otherwise.
+  function isFc(r) {
+    const m = r && r.metadata;
+    if (m && typeof m.is_forecast === 'boolean') return m.is_forecast;
+    const now = new Date(), start = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    return new Date(r.observed_at).getTime() >= start;
+  }
+  function dateStr(d) { return d.toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone:'UTC' }); }
+  function monthStr(d) { return d.toLocaleDateString('en-US', { month:'short', timeZone:'UTC' }) + ' \u2019' + String(d.getUTCFullYear()).slice(2); }
   function isoWeekOfYear(d) {
     const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     const dayNum = t.getUTCDay() || 7;
@@ -189,7 +197,7 @@
     const currentYear = new Date().getUTCFullYear();
     const bandWeeks = [];
     for (let w = 1; w <= 52; w++) {
-      const obs = (byWeek[w] || []).filter(o => o.year < currentYear);
+      const obs = (byWeek[w] || []).filter(o => o.year < currentYear && o.year >= currentYear - 5);   // bundle 145: the prior 5 years only
       if (obs.length === 0) { bandWeeks.push(null); continue; }
       const vals = obs.map(o => o.value).sort((a,b)=>a-b);
       bandWeeks.push({
@@ -206,7 +214,16 @@
 
     // Versus 5-year average for the matching week
     const matchBand = bandWeeks[latest.week - 1];
-    const vsAvg5y = matchBand ? ((latest.value - matchBand.median) / matchBand.median) * 100 : null;
+    // bundle 145: same basis as the Trading Desk tile (market_desk RPC) and EIA's
+    // report — the average of readings within 4 days of this date in each of the
+    // prior 5 years.
+    const near = [];
+    for (let k = 1; k <= 5; k++) {
+      const target = Date.UTC(latest.date.getUTCFullYear() - k, latest.date.getUTCMonth(), latest.date.getUTCDate());
+      rows.forEach(r => { const t = new Date(r.observed_at).getTime(); if (Math.abs(t - target) < 4 * 86400000) near.push(Number(r.value)); });
+    }
+    const avg5 = near.length ? Math.round(near.reduce((a, b) => a + b, 0) / near.length) : null;
+    const vsAvg5y = avg5 ? ((latest.value - avg5) / avg5) * 100 : null;
     const vsMin   = matchBand ? latest.value - matchBand.min : null;
     const vsMax   = matchBand ? latest.value - matchBand.max : null;
 
@@ -214,9 +231,9 @@
     if (headline) {
       headline.innerHTML =
         '<div class="mi-headline-num">'+ fmtBcf(latest.value) +'</div>' +
-        '<div class="mi-headline-sub">Working gas in storage · week of '+ dateStr(latest.date) +'</div>' +
+        '<div class="mi-headline-sub">Working gas in storage · week ending '+ latest.date.toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone:'UTC' }) +'</div>' +
         (vsAvg5y != null
-          ? '<div class="mi-headline-delta '+(vsAvg5y >= 0 ? 'pos':'neg')+'">'+ fmtPct(vsAvg5y) +' vs 5-year median</div>'
+          ? '<div class="mi-headline-delta '+(vsAvg5y >= 0 ? 'pos':'neg')+'">'+ fmtPct(vsAvg5y) +' vs 5-yr avg' + (avg5 ? ' (' + avg5.toLocaleString() + ' Bcf)' : '') + '</div>'
           : '');
     }
 
@@ -331,8 +348,8 @@
     // EIA STEO publishes both: history fills in alongside spot, forecast extends
     // 18 months ahead. The fetcher tags each row with metadata.is_forecast.
     steoRows.sort((a,b)=> new Date(a.observed_at) - new Date(b.observed_at));
-    const steoHistory  = steoRows.filter(r => !(r.metadata && r.metadata.is_forecast));
-    const steoForecast = steoRows.filter(r =>  (r.metadata && r.metadata.is_forecast));
+    const steoHistory  = steoRows.filter(r => !isFc(r));
+    const steoForecast = steoRows.filter(isFc);
 
     // STEO next-12-month average — the canonical procurement-budgeting number
     const next12 = steoForecast.slice(0, 12);
@@ -559,15 +576,17 @@
 
     // Sort by observation date, split into history (actual) vs forecast
     rows.sort((a,b) => new Date(a.observed_at) - new Date(b.observed_at));
-    const history  = rows.filter(r => !r.metadata || r.metadata.is_forecast !== true);
-    const forecast = rows.filter(r => r.metadata && r.metadata.is_forecast === true);
+    // bundle 145: the series goes back to 1989; show the last 3 years plus the outlook
+    { const cut = Date.now() - 3 * 365.25 * 86400000; const recent = rows.filter(r => new Date(r.observed_at).getTime() >= cut); if (recent.length >= 2) rows = recent; }
+    const history  = rows.filter(r => !isFc(r));
+    const forecast = rows.filter(isFc);
 
     if (history.length + forecast.length < 2) {
       chart.innerHTML = '<div class="mi-empty"><div class="mi-empty-icon">📅</div><div class="mi-empty-msg">Building STEO history — only '+rows.length+' point loaded so far.</div></div>';
       return;
     }
 
-    const allPts = rows.map(r => ({ d: new Date(r.observed_at), v: Number(r.value), forecast: !!(r.metadata && r.metadata.is_forecast) }));
+    const allPts = rows.map(r => ({ d: new Date(r.observed_at), v: Number(r.value), forecast: isFc(r) }));
     const W = 540, H = 220, P = { t: 16, r: 14, b: 28, l: 44 };
     const innerW = W - P.l - P.r, innerH = H - P.t - P.b;
 
@@ -653,7 +672,7 @@
       storage = storageRows[storageRows.length - 1];
 
       // STEO Henry Hub next-12-month forecast average
-      const steoForecast = steoRows.filter(r => r.metadata && r.metadata.is_forecast);
+      const steoForecast = steoRows.filter(isFc);
       const next12 = steoForecast.slice(0, 12);
       steoFcstAvg = next12.length ? next12.reduce((a,r)=>a+Number(r.value),0)/next12.length : null;
 
@@ -754,7 +773,7 @@
 
       // ── STEO Henry Hub forecast ──
       steoHHRows.sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
-      const steoForecast = steoHHRows.filter(r => r.metadata && r.metadata.is_forecast);
+      const steoForecast = steoHHRows.filter(isFc);
       const next12 = steoForecast.slice(0, 12);
       const steo12mAvg = next12.length
         ? next12.reduce((s, r) => s + Number(r.value), 0) / next12.length
@@ -770,12 +789,15 @@
       let storageVs5yr = null;
       if (latestStorage) {
         const latestDate = new Date(latestStorage.observed_at);
-        const latestWeek = _weekOfYear(latestDate);
+        // bundle 145: same basis as the Trading Desk tile — readings within 4 days
+        // of this date in each of the prior 5 years
         const sameWeek = storageRows.filter(r => {
-          const d = new Date(r.observed_at);
-          return _weekOfYear(d) === latestWeek &&
-                 d.getFullYear() < latestDate.getFullYear() &&
-                 d.getFullYear() >= latestDate.getFullYear() - 5;
+          const t = new Date(r.observed_at).getTime();
+          for (let k = 1; k <= 5; k++) {
+            const target = Date.UTC(latestDate.getUTCFullYear() - k, latestDate.getUTCMonth(), latestDate.getUTCDate());
+            if (Math.abs(t - target) < 4 * 86400000) return true;
+          }
+          return false;
         });
         if (sameWeek.length) {
           const avg = sameWeek.reduce((s, r) => s + Number(r.value), 0) / sameWeek.length;
@@ -790,8 +812,8 @@
 
       // ── STEO commercial electricity forecast ──
       steoCommRows.sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
-      const commActual = steoCommRows.filter(r => !(r.metadata && r.metadata.is_forecast));
-      const commForecast = steoCommRows.filter(r => r.metadata && r.metadata.is_forecast);
+      const commActual = steoCommRows.filter(r => !isFc(r));
+      const commForecast = steoCommRows.filter(isFc);
       const commLastActual = commActual.length ? commActual[commActual.length - 1] : null;
       const commLastForecast = commForecast.length
         ? commForecast[commForecast.length - 1] : null;
