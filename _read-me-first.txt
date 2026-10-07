@@ -1,32 +1,40 @@
-BEACON DEPLOY BUNDLE — beacon_index_150
-(Includes 148 and 149. Deploy alone.)
+BEACON DEPLOY BUNDLE — beacon_index_153
+(Includes 148–152. Deploy alone.)
 ══════════════════════════════════════════════════════════════════════════════
-Changed vs 149: index.html, sp_polish.js
-New: outreach.js
+Changed vs 152: index.html, ag_context.js (NEW)
+Server side (already live, nothing to do): ask-gridient edge function v23.
 
-━━ BROKER VIEW: CLIENT ACTIONS BECOME CLIENT OUTREACH ━━
-  In broker view every client-facing action now reaches out to THAT client:
-  • Intelligence "Recommended path" buttons: Request Audit / Run an RFP /
-    Get RECs … → "Email client: audit info", "Email client: RFP pitch",
-    "Email client: REC options" …
-  • Recommendations cards: "Schedule 15-min call" → "Invite client to a call",
-    the action button → "Email client: …".
-  • Account Manager card: "Invite client to a call" · "Send pricing note" ·
-    "Ask client for bills".
-  • Program pages: "Schedule Discovery Call" → "Send this program to the client".
-  Each opens a drafted email built from the client's own data: the finding,
-  how many locations qualify, the estimated $/yr (labelled as an estimate), the
-  three highest-use locations to start with, why it matters, and the firm's
-  booking link. Edit To / Subject / Message, then Open in email or Copy text.
-  "To" fills from the client's primary contact when one is on file.
-  Wording in broker view speaks about the client: "Client Portfolio",
-  "This client's EUI", "the client's states", "Client has" …
-  CLIENT VIEW IS UNCHANGED (checked: same labels, same actions).
+━━ ASK GRIDIENT ━━
+  • Knows the open client. Each question carries a briefing Beacon builds
+    from what is on screen: meters, locations, spend, contracts, program
+    estimates, the Next 120 days, the open location and today's market.
+  • Streams: first words in about 1 second, full answer in 4–5 seconds.
+  • Rules: quote Beacon's numbers exactly, never add figures together, never
+    name vendors that aren't in the data, read gas storage the right way,
+    label contracts electric or gas only when the data says so.
+  • Window: suggested questions you can click (broker, client and location
+    sets), a "Live data · <client> · 410 meters · Broker view" badge, figures
+    in the firm colour, answer bubbles, a typing cursor, and an
+    "Answered in 4.1s · first words in 1.0s" stamp.
 
-━━ PROGRAM PAGE FONTS ━━
-  The pages asked for Fraunces and IBM Plex Sans, which Beacon never loads, so
-  headlines fell back to a Times-style serif. They now use Beacon's Inter,
-  heavier and tighter; the accent words in hero headlines take the firm's
-  two-colour gradient.
+━━ FOOTPRINT LINKS ━━
+  • Every "View …" link now lands exactly on its section. Before, the page was
+    still growing when it scrolled, so View jurisdictions landed on Solar,
+    View by state on Rate structures, and so on.
+  • View benchmarks → the benchmark tiles (was Utility Rate Structures).
+  • View by state → renamed "View solar potential" (it's the solar card).
+  • "Procurement & efficiency methodology" → renamed "See utility rate
+    structures" (that is where it goes; there was no methodology page).
+  • "DOE peer database methodology" → renamed "Peer ranking methodology",
+    and it opens the ENERGY STAR / CBECS methodology instead of a table.
 
-UNDO: redeploy 149. Outreach only: delete <script src="outreach.js"></script>.
+━━ NUMBERS THAT NOW AGREE ━━
+  • One spend everywhere: the header said $110.5M (stored at import) while
+    Footprint and the reports said $143.6M. All now use $143.6M.
+  • Carbon: Footprint said 314K t, its "View equivalencies" page said 293,251 t
+    (gas left out). Both now 313,667 t, labelled Scope 1 + 2.
+  • Footprint hero: $29.6M vs $28.7M on Overview/Recommendations for the same
+    program. Now $28.7M everywhere.
+  • Savings Opportunity no longer claims "< 12 mo payback" (no basis for it).
+
+UNDO: redeploy 152. (The new edge function still answers 152's window.)
