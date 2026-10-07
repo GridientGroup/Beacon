@@ -1,5 +1,15 @@
-BEACON DEPLOY BUNDLE — beacon_index_155
-(Includes 148–154. Deploy alone.)
+BEACON DEPLOY BUNDLE — beacon_index_156
+(Includes 148–155. Deploy alone.)
+
+Changed vs 155: polish.js only — smoother scrolling:
+  • While the page scrolls, cards and rows don't react to the pointer
+    (cards passing under the mouse were re-running their lift and shadow
+    animations on every frame). Hover comes back 0.14s after scrolling stops.
+  • The map doesn't grab the scroll while you're scrolling past it.
+  • The two full-screen blur layers (Ask Gridient backdrop, methodology
+    pop-up) no longer blur the page while they're closed.
+
+── 155 notes ──
 
 Changed vs 154: beacon_pro_renderer.js — no on-screen "Demo data" ribbon on
 the Bill Anomaly and M&V tiles. Capacity tag source now reads "Utility PLC
@@ -37,4 +47,4 @@ All readings are bill_source 'synthetic', source_document_url
     "not collected yet" even with interval data on file. They now say
     "Next release · analysis in development · interval data for N meters".
 
-UNDO: redeploy 154 (or 153). The demo data stays unless removed (SQL in the backlog).
+UNDO: redeploy 155. The demo data stays unless removed (SQL in the backlog).

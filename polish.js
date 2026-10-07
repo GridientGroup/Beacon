@@ -98,6 +98,13 @@
     // ── focus ──
     'button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:1px solid rgba(var(--acc-rgb),.8);outline-offset:2px}' +
 
+    // ── bundle 156: smoother scrolling ──
+    // no hover effects while the page is scrolling (cards passing under the
+    // pointer were re-animating their lift + shadows every frame)
+    'body.b156-scrolling .scard,body.b156-scrolling .icard,body.b156-scrolling .fp-card,body.b156-scrolling .po-prog-card,body.b156-scrolling .score-tile,body.b156-scrolling .eq-card,body.b156-scrolling .rebates-card,body.b156-scrolling .hr-card,body.b156-scrolling .bm-row,body.b156-scrolling tr,body.b156-scrolling .pmap-iframe{pointer-events:none!important}' +
+    // full-screen blur layers that sit invisible when closed: no blur until opened
+    '#ag-backdrop:not(.ag-open),#meth-overlay:not(.meth-open){backdrop-filter:none!important;-webkit-backdrop-filter:none!important;visibility:hidden}' +
+
     // ── print / reduced motion: none of this ──
     '@media (prefers-reduced-motion:reduce){.bm-modal-backdrop.show,.bm-modal-backdrop.show .bm-modal,.modal-bg.on,.modal-bg.on>.modal{animation:none}' + sel(LIFT, ':hover') + '{transform:none}}' +
 
@@ -206,6 +213,13 @@
     // the topbar hairline needs a positioned parent (it's sticky, which counts)
     // brand.js re-sets --lime when a firm brand applies: follow it
     new MutationObserver(syncAccent).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    // bundle 156: mark the page as scrolling (cleared 140ms after the last scroll event)
+    var _st = null;
+    window.addEventListener('scroll', function () {
+      if (!_st) document.body.classList.add('b156-scrolling');
+      clearTimeout(_st);
+      _st = setTimeout(function () { _st = null; document.body.classList.remove('b156-scrolling'); }, 140);
+    }, { passive: true });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
