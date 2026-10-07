@@ -285,7 +285,11 @@
   // Badge shown on any tile whose numbers came out of the generator. Kept
   // visually distinct from the amber "awaiting"/"locked" shells — this tile
   // has real math and real output, it just does not have real bills.
-  function demoRibbon() {
+  // bundle 155 (Matt): no on-screen demo ribbon. Synthetic rows still carry
+  // bill_source 'synthetic' in the database, and the database refuses them on
+  // any client not flagged is_demo, so a real client can never show this data.
+  function demoRibbon() { return ''; }
+  function demoRibbonOld() {
     return '<div class="bm-row" style="border-top:1px dashed rgba(245,158,11,.45);margin-top:6px;padding-top:7px">' +
       '<span class="bm-row-lbl" style="color:' + AMBER + '">Demo data</span>' +
       '<span class="bm-row-val" style="color:' + AMBER + ';font-weight:400;text-align:right">' +
@@ -334,6 +338,16 @@
       monthly: months >= 6,
       monthsHeld: months,
       interval: false,
+      // bundle 154: interval data Beacon already holds (load profile card),
+      // so the interval tiles can say it is on file rather than "not collected"
+      intervalMeters: (function () {
+        try {
+          var lp = window.__loadProfiles, by = lp && lp.by_id, n = 0;
+          if (!by) return 0;
+          Object.keys(by).forEach(function (k) { if (by[k] && Number(by[k].n) > 0) n++; });
+          return n;
+        } catch (e) { return 0; }
+      })(),
     };
   }
 
@@ -392,6 +406,14 @@
       ? spec.minMonths + ' months of bills per meter'
       : NEEDS_LABEL[spec.needs];
 
+    if (spec.needs === 'interval' && depth.intervalMeters > 0) {
+      return shellTile({
+        icon: spec.icon, title: spec.title, unit: spec.unit, what: spec.what, source: spec.source,
+        badge: 'Next release', badgeColor: '#60a5fa', badgeRgb: '96,165,250',
+        reqLabel: 'Status', reqValue: 'analysis in development',
+        haveLabel: 'You have', haveValue: 'interval data for ' + depth.intervalMeters + ' meter' + (depth.intervalMeters === 1 ? '' : 's'),
+      });
+    }
     return shellTile({
       icon: spec.icon, title: spec.title, unit: spec.unit, what: spec.what, source: spec.source,
       badge: 'Awaiting data', badgeColor: AMBER, badgeRgb: '245,158,11',
@@ -726,8 +748,11 @@
           z: x.z_score,
           dir: x.direction,
           severity: x.severity,
-          excess: x.excess_consumption,
-          excessPct: x.excess_pct,
+          // bundle 154: a meter without weather data is screened on raw usage,
+          // which carries no prediction; use its own reference mean instead
+          excess: x.excess_consumption != null ? x.excess_consumption
+            : (x.reference_mean != null && x.consumption != null ? x.consumption - x.reference_mean : null),
+          excessPct: x.excess_pct != null ? x.excess_pct : x.deviation_pct,
           basis: x.basis,
         });
       });

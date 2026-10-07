@@ -410,7 +410,8 @@
     var withData = ctx.accts.filter(function (a) { return by[a.id] && by[a.id].n; });
     var head = '<div class="ic-lbl">📈 Load profile</div>';
     if (!withData.length) return head + '<div class="loc-card-sub" style="margin-top:6px">No interval data yet for this client. Upload a utility’s 15-minute or hourly export (CSV, Excel or Green Button XML) to see peak demand, load factor, base load and the daily load shape.</div>' + (_state.msg ? '<div class="loc-card-srcline" style="margin-top:6px">' + esc(_state.msg) + '</div>' : '');
-    if (!_sel || !by[_sel] || !by[_sel].n) _sel = withData[0].id;
+    // bundle 154: open on the meter with the highest measured peak
+    if (!_sel || !by[_sel] || !by[_sel].n) _sel = withData.slice().sort(function (x, y) { return (Number(by[y.id].peak_kw) || 0) - (Number(by[x.id].peak_kw) || 0); })[0].id;
     var a = withData.filter(function (x) { return x.id === _sel; })[0], p = by[_sel], e = evaluate(a, p);
     return head + (withData.length > 1 ? '<div style="margin:4px 0 8px">' + meterPicker(withData, _sel, 'data-ld-sel') + '</div>' : '<div class="loc-card-srcline" style="margin:2px 0 6px">' + esc(label(a)) + '</div>') +
       '<div class="ic-cols"><div class="ic-hero"><div class="bm-bignum">' + n0(e.peak) + '<span style="font-size:16px;color:var(--mu)"> kW</span></div><div class="ic-unit">measured peak demand</div></div><div class="ic-data">' +
@@ -422,7 +423,8 @@
       row('Energy in range', n0(Number(p.total_kwh)) + ' kWh') +
       '</div></div>' + shapeSvg(p.shape) +
       '<div class="loc-card-srcline" style="margin-top:6px">Base load = 5th-percentile demand (what runs nights and weekends). Load factor = average ÷ peak.</div>' +
-      (_state.msg ? '<div class="loc-card-srcline" style="margin-top:4px">' + esc(_state.msg) + '</div>' : '');
+      (_state.msg ? '<div class="loc-card-srcline" style="margin-top:4px">' + esc(_state.msg) + '</div>' : '') +
+      '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" data-ld-rm="' + esc(_sel) + '" data-n="' + n0(p.n) + '" style="' + BTN2 + ';color:#ef4444;border-color:rgba(239,68,68,.4)">Remove this meter’s interval data</button><span class="loc-card-srcline" data-ld-rmmsg>Takes the ' + n0(p.n) + ' intervals out of Beacon; tags stay. Re-upload any time.</span></div>';
   }
   function tileB(ctx, by) {
     var elec = ctx.accts.filter(isElec);
@@ -451,7 +453,8 @@
         '<label style="font-size:11px;color:var(--mu)">Transmission tag kW <input data-ld-trn type="number" min="0" step="0.1" value="' + (e.trans != null ? e.trans : '') + '" style="' + INP + ';width:90px"></label>' +
         '<label style="font-size:11px;color:var(--mu)">Year <input data-ld-yr value="' + esc(p.capacity_tag_year || deliveryYear()) + '" style="' + INP + ';width:70px"></label>' +
         '<label style="font-size:11px;color:var(--mu)">From <input data-ld-src value="' + esc(p.tag_source || '') + '" placeholder="bill / supplier" style="' + INP + ';width:110px"></label>' +
-        '<button type="button" data-ld-tagsave style="' + BTN2 + '">Save tags</button></div>' +
+        '<button type="button" data-ld-tagsave style="' + BTN2 + '">Save tags</button>' +
+        (e.tag != null || e.trans != null ? '<button type="button" data-ld-tagclear style="' + BTN2 + ';color:#ef4444;border-color:rgba(239,68,68,.4)">Clear tags</button>' : '') + '</div>' +
       '<div class="loc-card-srcline" data-ld-tagmsg style="margin-top:6px">' + priceLine + (pr.src ? ' · ' + esc(pr.src) : '') + (pr.via === 'state' ? ' · ISO from state' : '') +
         '. Capacity cost is before the utility’s scaling factors and supplier margin. DR value assumes the site can drop to its base load during events; aggregator shares vary.</div>';
   }
@@ -494,6 +497,33 @@
       sb().rpc('tag_save', { p_customer: ctx.cid, p_account: acc, p_capacity_kw: cap, p_year: B.querySelector('[data-ld-yr]').value.trim(), p_transmission_kw: trn, p_source: B.querySelector('[data-ld-src]').value.trim() })
         .then(function (r) { if (r.error) { m.textContent = 'Not saved: ' + r.error.message; m.style.color = '#ef4444'; return; } _sel = acc; _state.cid = null; _state.msg = 'Tags saved.'; render(); },
               function (e) { m.textContent = 'Not saved: ' + e.message; });
+    });
+    // bundle 137: remove interval data / clear tags (two clicks, no browser dialog)
+    function twoStep(btn, armedText, go) {
+      btn.addEventListener('click', function () {
+        if (btn.getAttribute('data-armed') !== '1') {
+          var orig = btn.textContent; btn.setAttribute('data-armed', '1'); btn.textContent = armedText;
+          setTimeout(function () { if (btn.isConnected && btn.getAttribute('data-armed') === '1') { btn.removeAttribute('data-armed'); btn.textContent = orig; } }, 4000);
+          return;
+        }
+        btn.disabled = true; go();
+      });
+    }
+    var rm = A.querySelector('[data-ld-rm]');
+    if (rm) twoStep(rm, 'Click again: remove ' + rm.getAttribute('data-n') + ' intervals', function () {
+      var m = A.querySelector('[data-ld-rmmsg]');
+      sb().rpc('interval_remove', { p_customer: ctx.cid, p_account: rm.getAttribute('data-ld-rm'), p_tags: false }).then(function (r) {
+        if (r.error) throw new Error(r.error.message);
+        _state.cid = null; _state.msg = 'Removed ' + n0(r.data) + ' intervals.'; _sig = ''; render();
+      }).catch(function (e) { rm.disabled = false; m.textContent = 'Not removed: ' + e.message; m.style.color = '#ef4444'; });
+    });
+    var tc = B.querySelector('[data-ld-tagclear]');
+    if (tc) twoStep(tc, 'Click again to clear', function () {
+      var acc = (B.querySelector('[data-ld-sel2]') || {}).value || (ctx.accts.filter(isElec)[0] || {}).id, m = B.querySelector('[data-ld-tagmsg]');
+      sb().rpc('tag_save', { p_customer: ctx.cid, p_account: acc, p_capacity_kw: null, p_year: null, p_transmission_kw: null, p_source: null }).then(function (r) {
+        if (r.error) throw new Error(r.error.message);
+        _sel = acc; _state.cid = null; _state.msg = 'Tags cleared.'; _sig = ''; render();
+      }).catch(function (e) { tc.disabled = false; m.textContent = 'Not cleared: ' + e.message; m.style.color = '#ef4444'; });
     });
     C.querySelector('[data-ld-tpl]').addEventListener('click', template);
     C.querySelector('[data-ld-file]').addEventListener('change', function (ev) {

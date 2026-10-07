@@ -77,6 +77,12 @@
         'We would like to put together a pricing review for ' + poss(who) + ' energy supply: what you pay today, what the market is offering, and the options for your next contract.\n\n' +
         'Could you share your current supplier contracts (or the most recent bill for each account) and any renewal dates you are tracking?' + sign };
     }
+    if (kind === 'renewal') {
+      return { subject: who + ': supply contract renewal', body: hi + (finding ? finding + '\n\n' : '') +
+        'We would like to start pricing the renewal now, so you can choose between competitive offers well before that date instead of rolling onto the utility’s default rate. ' +
+        'We bid the load across licensed suppliers and show every offer side by side against what you pay today; there is no commitment until you pick one.\n\n' +
+        'Could you send the most recent bill for this account, and would 15 minutes this week work? You can pick a time here: ' + cal() + sign };
+    }
     if (kind === 'call' && !pid) {
       return { subject: who + ': a quick review call', body: hi +
         'We have been reviewing ' + poss(who) + ' energy portfolio and have a few findings worth 20 minutes of your time.\n\nYou can pick a time that suits you here: ' + cal() + sign };
@@ -103,6 +109,8 @@
     if (!sb || !id) return Promise.resolve('');
     return sb.from('customers').select('primary_contact').eq('id', id).maybeSingle().then(function (r) {
       var v = (r && r.data && r.data.primary_contact) || '';
+      // bundle 154: primary_contact is a JSON object {name, email, phone}
+      if (v && typeof v === 'object') v = v.email || '';
       var m = String(v).match(/[^\s<>,;]+@[^\s<>,;]+\.[a-z]{2,}/i);
       CONTACT[id] = m ? m[0] : ''; return CONTACT[id];
     }, function () { return ''; });
@@ -112,9 +120,9 @@
   function compose(kind, pid, finding) {
     var bd = document.getElementById('bm-modal-backdrop'), body = document.getElementById('bm-modal-body');
     if (!bd || !body) return false;
-    var d = draft(kind, pid, finding), f = pid ? facts(pid) : null;
+    var d = draft(kind, pid, finding), f = (pid && kind !== 'renewal') ? facts(pid) : null;
     document.getElementById('bm-modal-eye').textContent = 'Client outreach';
-    document.getElementById('bm-modal-title').textContent = 'Email ' + clientName() + (f ? ' about ' + f.name : kind === 'bills' ? ' for bills' : kind === 'quote' ? ' about pricing' : '');
+    document.getElementById('bm-modal-title').textContent = 'Email ' + clientName() + (kind === 'renewal' ? ' about a renewal' : f ? ' about ' + f.name : kind === 'bills' ? ' for bills' : kind === 'quote' ? ' about pricing' : '');
     body.innerHTML = '<div class="pm or">' +
       (f ? '<div class="or-facts">' +
         '<div class="pm-chip pm-chip-elig"><i></i><b>' + f.elig + '</b><span>of ' + f.total + ' locations qualify</span></div>' +
