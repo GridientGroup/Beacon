@@ -1,29 +1,31 @@
-BEACON DEPLOY BUNDLE — beacon_index_146
-(Builds on 145, which you deployed. Deploy alone.)
+BEACON DEPLOY BUNDLE — beacon_index_147
+(Builds on 146, which you deployed. Deploy alone.)
 ══════════════════════════════════════════════════════════════════════════════
-Changed vs 145: index.html, portfolio_map.html
-New: polish.js
+Changed vs 146: index.html, polish.js
 
-━━ SMOOTHER ━━
-  • Biggest fix: scrolling past the portfolio map re-styled the whole map on
-    every scroll step (a side effect of 145's "pop-ups open in view" fix). The
-    map now only updates an open pop-up. Measured: the ~0.8-second stall while
-    scrolling the Overview is gone.
-  • Header bar: solid dark glass instead of a live blur recomputed on every
-    scroll frame.
-  • Ask Gridient mark: plays its intro glow once, then holds still (it was
-    repainting forever).
-  • Cards and buttons animate only lift, shadow and border on hover.
-  • Numbers use fixed-width digits so they don't shift as values load.
+━━ POP-UP CARDS, REDESIGNED ━━
+  Every Beacon pop-up (program status, location, BPS, benchmarks, Learn more,
+  Edit client…):
+  • Rises into place instead of blinking on.
+  • A signature shape: rounded corners with one tighter corner (bottom-left),
+    echoed on the opportunity ticket and the main button.
+  • Lit from the top in the firm's colour, a 2px crown line that runs from the
+    main colour into the second colour (Power Kiosk blue → orange,
+    STS lime → gold), deep layered shadow.
+  • Glowing dot on the eyebrow, larger title, round close button that turns.
 
-━━ DEPTH & DETAIL (polish.js) ━━
-  • Soft layered shadows and a faint top highlight on every card.
-  • A hair-thin line in the firm's colour across each card's top edge
-    (Power Kiosk blue / STS lime) and under the header.
-  • Clickable cards lift 2px on hover; buttons press in slightly.
-  • Gentle row hovers in lists and tables, slim dark scrollbars, accent focus
-    rings, crisper text.
-  Visual only: no numbers, wording or layout changed.
+  Program status pop-up (Overview tiles and the per-location tiles):
+  • A ring showing the share of locations enrolled + eligible.
+  • An opportunity "ticket" in the second colour with the $/yr figure.
+  • Enrolled / Eligible / Not applicable chips over a glowing bar.
+  • "Why this matters" as a quote with a colour rule.
+  • Numbered eligible-location rows that slide on hover, with the reason as a tag.
+  • A stronger "Open the … workspace" button.
 
-UNDO: delete the line <script src="polish.js"></script> in index.html for the
-look; redeploy 145 for everything.
+  Location pop-up (map pins):
+  • Spend ticket, supply-contract card with a countdown ("in 856 days";
+    amber within 120 days, red once expired), usage tiles with colour rules,
+    utility and supplier chips.
+  Same numbers as before: nothing new estimated.
+
+UNDO: redeploy 146.

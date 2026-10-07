@@ -10476,76 +10476,62 @@ window._renderProgStatModal = function(pid, opts){
 
   var esc = function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 
-  // ── Build the card ────────────────────────────────────────────────
-  var h = '';
+  // ── Build the card (bundle 147: redesigned — ring, opportunity ticket,
+  //    status chips, quote, numbered location rows). Same numbers as before.
+  var h = '<div class="pm">';
+  var R = 46, C = 2 * Math.PI * R;
+  var arcE = totalLocs ? (enrolledCt / totalLocs) * C : 0, arcG = totalLocs ? (eligibleCt / totalLocs) * C : 0;
+  var shareTxt = totalLocs ? Math.round((enrolledCt + eligibleCt) / totalLocs * 100) + '%' : '—';
 
-  if (scopeLabel) {
-    h += '<div style="font-size:12.5px;color:var(--mu);margin:-2px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--b3)">At <span style="color:var(--tx);font-weight:600">' + esc(scopeLabel) + '</span></div>';
-  }
-
-  // Status summary: counts + segmented bar.
-  h += '<div style="display:flex;gap:18px;align-items:flex-end;margin-bottom:6px">'
-     +   '<div><div style="font-size:30px;font-weight:800;line-height:1;color:' + (enrolledCt ? 'var(--lime)' : 'var(--tx)') + '">' + enrolledCt + '</div>'
-     +     '<div style="font-size:11px;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px">enrolled</div></div>'
-     +   '<div><div style="font-size:30px;font-weight:800;line-height:1">' + eligibleCt + '</div>'
-     +     '<div style="font-size:11px;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px">eligible</div></div>'
-     +   '<div><div style="font-size:30px;font-weight:800;line-height:1;color:var(--mu)">' + naCt + '</div>'
-     +     '<div style="font-size:11px;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px">n/a</div></div>'
-     +   '<div style="margin-left:auto;text-align:right"><div style="font-size:13px;color:var(--mu)">of</div>'
-     +     '<div style="font-size:18px;font-weight:700">' + totalLocs + ' ' + (totalLocs === 1 ? 'location' : 'locations') + '</div></div>'
-     + '</div>';
-  h += '<div style="display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--b2);margin-bottom:18px">'
-     +   '<div style="width:' + pPct + '%;background:var(--lime)"></div>'
-     +   '<div style="width:' + ePct + '%;background:#7fb3d5"></div>'
-     +   '<div style="width:' + nPct + '%;background:var(--b3)"></div>'
+  h += '<div class="pm-hero">'
+     +   '<div class="pm-ring"><svg viewBox="0 0 120 120" aria-hidden="true">'
+     +     '<circle cx="60" cy="60" r="' + R + '" class="pm-ring-bg"/>'
+     +     (arcG ? '<circle cx="60" cy="60" r="' + R + '" class="pm-ring-elig" stroke-dasharray="' + arcG.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-arcE).toFixed(1) + '"/>' : '')
+     +     (arcE ? '<circle cx="60" cy="60" r="' + R + '" class="pm-ring-enr" stroke-dasharray="' + arcE.toFixed(1) + ' ' + C.toFixed(1) + '"/>' : '')
+     +   '</svg><div class="pm-ring-c"><b>' + shareTxt + '</b><span>' + (enrolledCt ? 'enrolled + eligible' : 'eligible') + '</span></div></div>'
+     +   '<div class="pm-hero-r">'
+     +     (scopeLabel ? '<div class="pm-where"><span class="pm-pin"></span>' + esc(scopeLabel) + '</div>' : '<div class="pm-where"><span class="pm-pin"></span>' + totalLocs + ' ' + (totalLocs === 1 ? 'location' : 'locations') + ' on file</div>')
+     +     (oppVal > 0
+          ? '<div class="pm-ticket"><div class="pm-ticket-l">Estimated annual opportunity</div><div class="pm-ticket-v">' + fmtUsd(oppVal) + '<small>/yr</small></div><div class="pm-ticket-n">Estimate from this portfolio’s own usage and published rates</div></div>'
+          : '<div class="pm-ticket pm-ticket-none"><div class="pm-ticket-l">Estimated annual opportunity</div><div class="pm-ticket-v">—</div><div class="pm-ticket-n">No estimate until a location qualifies</div></div>')
+     +   '</div>'
      + '</div>';
 
-  // Opportunity estimate.
-  if (oppVal > 0){
-    h += '<div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--b3);border-radius:11px;background:rgba(193,255,114,0.06);margin-bottom:16px">'
-       +   '<div style="font-size:22px">' + icon + '</div>'
-       +   '<div><div style="font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px">Estimated annual opportunity</div>'
-       +     '<div style="font-size:22px;font-weight:800;color:var(--lime);line-height:1.1">' + fmtUsd(oppVal) + '<span style="font-size:13px;font-weight:600;color:var(--mu)"> / yr</span></div></div>'
-       + '</div>';
-  }
+  h += '<div class="pm-chips">'
+     +   '<div class="pm-chip pm-chip-enr"><i></i><b>' + enrolledCt + '</b><span>Enrolled</span></div>'
+     +   '<div class="pm-chip pm-chip-elig"><i></i><b>' + eligibleCt + '</b><span>Eligible</span></div>'
+     +   '<div class="pm-chip pm-chip-na"><i></i><b>' + naCt + '</b><span>Not applicable</span></div>'
+     + '</div>'
+     + '<div class="pm-bar"><span class="pm-bar-enr" style="width:' + pPct + '%"></span><span class="pm-bar-elig" style="width:' + ePct + '%"></span><span class="pm-bar-na" style="width:' + nPct + '%"></span></div>';
 
-  // Why this matters.
   if (meta.why){
-    h += '<div style="margin-bottom:16px"><div style="font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Why this matters</div>'
-       +   '<div style="font-size:13.5px;line-height:1.5;color:var(--tx)">' + esc(meta.why) + '</div></div>';
+    h += '<div class="pm-why"><div class="pm-lbl">Why this matters</div><p>' + esc(meta.why) + '</p></div>';
   }
 
-  // Eligible locations list with their qualifying basis.
   if (eligLocList.length){
-    h += '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">'
-       +   'Eligible locations (' + eligLocList.length + ')</div><div style="display:flex;flex-direction:column;gap:7px">';
-    eligLocList.slice(0, 8).forEach(function(e){
+    h += '<div class="pm-lbl pm-lbl-row"><span>Eligible locations</span><em>' + eligLocList.length + '</em></div><div class="pm-locs">';
+    eligLocList.slice(0, 8).forEach(function(e, n){
       var lid = (typeof window._locId === 'function') ? window._locId({ address: e.address, city: e.city, state: e.state }) : '';
-      var rowStyle = 'display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border:1px solid var(--b3);border-radius:9px;background:var(--b1)';
-      var attrs = lid
-        ? ' onclick="if(window.closeBmModal)window.closeBmModal(); if(window.showLocationView)window.showLocationView(\'' + lid + '\')" style="' + rowStyle + ';cursor:pointer;transition:border-color .15s,background .15s" onmouseover="this.style.borderColor=\'var(--lime,#7DD36D)\';this.style.background=\'rgba(125,211,109,.06)\'" onmouseout="this.style.borderColor=\'var(--b3)\';this.style.background=\'var(--b1)\'" title="Open location scorecard"'
-        : ' style="' + rowStyle + '"';
-      h += '<div' + attrs + '>'
-         +   '<div style="font-size:13px;font-weight:600">' + esc(e.label) + (lid ? ' <span style="color:var(--mu);font-weight:400">\u2192</span>' : '') + '</div>'
-         +   (e.basis ? '<div style="font-size:12px;color:var(--mu);text-align:right;white-space:nowrap">' + esc(e.basis) + '</div>' : '')
+      var click = lid ? ' onclick="if(window.closeBmModal)window.closeBmModal(); if(window.showLocationView)window.showLocationView(\'' + lid + '\')" title="Open location scorecard"' : '';
+      h += '<div class="pm-loc' + (lid ? ' pm-loc-go' : '') + '"' + click + '>'
+         +   '<span class="pm-loc-n">' + String(n + 1).padStart(2, '0') + '</span>'
+         +   '<span class="pm-loc-a">' + esc(e.label) + '</span>'
+         +   (e.basis ? '<span class="pm-loc-b">' + esc(e.basis) + '</span>' : '')
+         +   (lid ? '<span class="pm-loc-x">→</span>' : '')
          + '</div>';
     });
-    if (eligLocList.length > 8){
-      h += '<div style="font-size:12px;color:var(--mu);padding:4px 2px">+ ' + (eligLocList.length - 8) + ' more eligible</div>';
-    }
-    h += '</div></div>';
+    if (eligLocList.length > 8) h += '<div class="pm-more">+ ' + (eligLocList.length - 8) + ' more eligible</div>';
+    h += '</div>';
   } else if (enrolledCt > 0){
-    h += '<div style="font-size:13px;color:var(--mu);margin-bottom:8px">All qualifying locations are already enrolled. Nice work.</div>';
+    h += '<div class="pm-empty">All qualifying locations are already enrolled.</div>';
   } else {
-    h += '<div style="font-size:13px;color:var(--mu);margin-bottom:8px">No locations currently qualify under this program\u2019s eligibility rules.</div>';
+    h += '<div class="pm-empty">No locations currently qualify under this program’s eligibility rules.</div>';
   }
 
-  // CTA into the workspace (closes the modal first).
-  h += '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--b3)">'
-     +   '<button onclick="window.closeBmModal&&window.closeBmModal(); if(typeof openProgram===\'function\')openProgram(\'' + pid + '\')" '
-     +     'style="display:inline-flex;align-items:center;gap:7px;background:var(--lime);color:#0a0a0a;border:none;border-radius:9px;padding:11px 18px;font-size:13.5px;font-weight:700;cursor:pointer">'
-     +     'Open the ' + esc(name) + ' workspace \u2192</button>'
-     + '</div>';
+  h += '<div class="pm-cta"><button class="pm-btn" onclick="window.closeBmModal&&window.closeBmModal(); if(typeof openProgram===\'function\')openProgram(\'' + pid + '\')">'
+     +   '<span>Open the ' + esc(name) + ' workspace</span><span class="pm-btn-a">→</span></button>'
+     +   '<span class="pm-cta-n">Methodology, sources and next steps</span></div>';
+  h += '</div>';
 
   return { eye: scopeLabel ? 'This location' : 'Program Status', title: icon + '  ' + name, html: h };
 };
@@ -15165,41 +15151,48 @@ window._renderLocationPopup = function (locationId) {
   var supplier = prime.supplier || prime.currentSupplier || '';
   function spendFmt(v){ return v >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M' : '$' + num(Math.round(v)); }
 
-  function tile(lbl, val, sub){
-    return '<div style="background:rgba(255,255,255,.03);border:1px solid var(--b1,rgba(255,255,255,.10));border-radius:10px;padding:12px 13px">'
-      + '<div style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:700">' + esc(lbl) + '</div>'
-      + '<div style="font-size:18px;font-weight:800;color:var(--tx,#e8eef5);margin-top:3px">' + val + '</div>'
-      + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:2px">' + esc(sub) + '</div>' : '')
-      + '</div>';
+  // bundle 147: redesigned pop-up — spend ticket, usage tiles, contract
+  // countdown, utility/supplier chips. Same figures as before.
+  function tile(lbl, val, unit, sub, cls){
+    return '<div class="lp-tile ' + (cls || '') + '"><div class="lp-tile-l">' + esc(lbl) + '</div>'
+      + '<div class="lp-tile-v">' + val + (unit ? '<small>' + esc(unit) + '</small>' : '') + '</div>'
+      + (sub ? '<div class="lp-tile-s">' + esc(sub) + '</div>' : '') + '</div>';
   }
-  var tiles = '';
-  tiles += tile('Building Size', num(Math.round(sqftVal)) + ' <span style="font-size:12px;color:var(--mu)">sq ft</span>', sqftEst ? 'Estimated' : '');
-  if (electricKwh > 0) tiles += tile('Electricity', num(Math.round(electricKwh)) + ' <span style="font-size:12px;color:var(--mu)">kWh/yr</span>');
-  if (gasTherms > 0)   tiles += tile('Natural Gas', num(Math.round(gasTherms)) + ' <span style="font-size:12px;color:var(--mu)">therms/yr</span>');
-  tiles += tile('Est. Annual Spend', spendFmt(annualSpend), spendIsEstimate ? 'Estimated from usage' : '');
+  var tiles = tile('Building size', num(Math.round(sqftVal)), 'sq ft', sqftEst ? 'Estimated' : 'Reported', 'lp-t-sq');
+  if (electricKwh > 0) tiles += tile('Electricity', num(Math.round(electricKwh)), 'kWh/yr', '', 'lp-t-el');
+  if (gasTherms > 0)   tiles += tile('Natural gas', num(Math.round(gasTherms)), 'therms/yr', '', 'lp-t-gas');
 
-  var meta = [];
-  if (utility) meta.push('Utility: ' + esc(utility));
-  if (supplier) meta.push('Supplier: ' + esc(supplier));
   var contractLine = '';
   if (contract || exp || status) {
-    var bits = [];
-    if (status) bits.push(esc(status));
-    if (contract) bits.push(esc(contract));
-    if (exp) bits.push('expires ' + esc(exp));
-    contractLine = '<div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:rgba(125,211,109,.06);border:1px solid rgba(125,211,109,.18);font-size:12.5px;color:var(--tx,#dfe7f0)">'
-      + '<span style="color:var(--mu);font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">Contract</span><br>'
-      + bits.join(' · ') + '</div>';
+    var d = exp ? new Date(String(exp).slice(0, 10) + 'T00:00:00') : null, days = null;
+    if (d && !isNaN(d)) { var t0 = new Date(); t0.setHours(0,0,0,0); days = Math.round((d - t0) / 86400000); }
+    var tone = days == null ? '' : days < 0 ? ' lp-c-past' : days <= 120 ? ' lp-c-soon' : '';
+    var when = days == null ? '' : days < 0 ? Math.abs(days) + ' days ago' : days === 0 ? 'today' : 'in ' + num(days) + ' days';
+    var pct = days == null ? 0 : Math.max(0, Math.min(100, 100 - days / 365 * 100));
+    contractLine = '<div class="lp-contract' + tone + '">'
+      + '<div class="lp-c-top"><span class="lp-tile-l">Supply contract</span>' + (status ? '<span class="lp-c-st">' + esc(status) + '</span>' : '') + '</div>'
+      + '<div class="lp-c-main"><b>' + (exp ? 'Expires ' + esc(exp) : esc(contract || 'On file')) + '</b>' + (when ? '<span>' + when + '</span>' : '') + '</div>'
+      + (days != null ? '<div class="lp-c-bar"><i style="width:' + pct.toFixed(0) + '%"></i></div><div class="lp-c-ax"><span>12 months out</span><span>expiry</span></div>' : '')
+      + (contract && exp ? '<div class="lp-tile-s">' + esc(contract) + ' term</div>' : '')
+      + '</div>';
   }
+  var chips = '';
+  if (utility) chips += '<span class="lp-chip"><em>Utility</em>' + esc(utility) + '</span>';
+  if (supplier) chips += '<span class="lp-chip"><em>Supplier</em>' + esc(supplier) + '</span>';
 
   var lid = esc(locationId);
-  var html =
-      '<div style="color:var(--mu);font-size:13px;margin:-4px 0 14px">' + esc(cityState) + (atype ? ' · ' + esc(atype) : '') + (accts.length > 1 ? ' · ' + accts.length + ' accounts' : '') + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">' + tiles + '</div>'
-    + contractLine
-    + (meta.length ? '<div style="margin-top:10px;font-size:12px;color:var(--mu)">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '')
-    + '<button type="button" onclick="if(window.closeBmModal)window.closeBmModal(); if(window.showLocationView)window.showLocationView(\'' + lid + '\');" '
-    + 'style="margin-top:18px;width:100%;background:linear-gradient(135deg,var(--lime,#7DD36D) 0%, #b9e07a 130%);color:#0A1F3D;border:none;padding:12px 18px;border-radius:9px;font-weight:800;font-size:13.5px;cursor:pointer">Open full location page →</button>';
+  var html = '<div class="pm lp">'
+    + '<div class="pm-where"><span class="pm-pin"></span>' + esc(cityState) + (atype ? ' · ' + esc(atype) : '') + (accts.length > 1 ? ' · ' + accts.length + ' accounts' : '') + '</div>'
+    + '<div class="lp-grid">'
+    +   '<div class="pm-ticket"><div class="pm-ticket-l">Estimated annual energy spend</div><div class="pm-ticket-v">' + spendFmt(annualSpend) + '<small>/yr</small></div>'
+    +     '<div class="pm-ticket-n">' + (spendIsEstimate ? 'Estimated from usage at state average rates' : 'From the account records') + '</div></div>'
+    +   contractLine
+    + '</div>'
+    + '<div class="lp-tiles">' + tiles + '</div>'
+    + (chips ? '<div class="lp-chips">' + chips + '</div>' : '')
+    + '<div class="pm-cta"><button class="pm-btn" type="button" onclick="if(window.closeBmModal)window.closeBmModal(); if(window.showLocationView)window.showLocationView(\'' + lid + '\');">'
+    +   '<span>Open the full location page</span><span class="pm-btn-a">→</span></button><span class="pm-cta-n">Programs, benchmarks, bills and the next 120 days</span></div>'
+    + '</div>';
 
   return { eye: 'Location', title: addr, html: html };
 };
