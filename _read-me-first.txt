@@ -1,31 +1,39 @@
-BEACON DEPLOY BUNDLE — beacon_index_147
-(Builds on 146, which you deployed. Deploy alone.)
+BEACON DEPLOY BUNDLE — beacon_index_148
+(Includes 147. If you haven't deployed 147, deploy this alone.)
 ══════════════════════════════════════════════════════════════════════════════
-Changed vs 146: index.html, polish.js
+Changed vs 147: index.html, triggers.js
+New: sp_polish.js
 
-━━ POP-UP CARDS, REDESIGNED ━━
-  Every Beacon pop-up (program status, location, BPS, benchmarks, Learn more,
-  Edit client…):
-  • Rises into place instead of blinking on.
-  • A signature shape: rounded corners with one tighter corner (bottom-left),
-    echoed on the opportunity ticket and the main button.
-  • Lit from the top in the firm's colour, a 2px crown line that runs from the
-    main colour into the second colour (Power Kiosk blue → orange,
-    STS lime → gold), deep layered shadow.
-  • Glowing dot on the eyebrow, larger title, round close button that turns.
+━━ SHARPER (the dull look) ━━
+  • Every program card that wasn't yet "assessed" was drawn at 65% opacity, so
+    on a fresh client (all of them, in a demo) every card, icon and number was
+    faded. Cards now draw at full strength; the status badge still says
+    "Not assessed". Fixes Power Kiosk and STS alike.
 
-  Program status pop-up (Overview tiles and the per-location tiles):
-  • A ring showing the share of locations enrolled + eligible.
-  • An opportunity "ticket" in the second colour with the $/yr figure.
-  • Enrolled / Eligible / Not applicable chips over a glowing bar.
-  • "Why this matters" as a quote with a colour rule.
-  • Numbered eligible-location rows that slide on hover, with the reason as a tag.
-  • A stronger "Open the … workspace" button.
+━━ PROGRAM STATUS TILES → PROGRAM PAGES ━━
+  • Overview tiles and the per-location tiles all open the program's page
+    (the same page as "See methodology"). No more mix of pop-up lists.
 
-  Location pop-up (map pins):
-  • Spend ticket, supply-contract card with a countdown ("in 856 days";
-    amber within 120 days, red once expired), usage tiles with colour rules,
-    utility and supplier chips.
-  Same numbers as before: nothing new estimated.
+━━ PROGRAM PAGES, REDESIGNED (sp_polish.js) ━━
+  • Key-figure band floats over the bottom of the hero as four lit tiles.
+  • "How it works" is a numbered timeline (01–04) with icon badges.
+  • "By the numbers" is three big stat columns with source tags.
+  • "Why it works" rows as cards; the savings estimate is a ticket with the
+    estimate in the second colour.
+  • Full-width call to action with a lit background and a bigger button.
+  • The "Annualized $" tile no longer wraps its range.
+  Words and numbers unchanged.
 
-UNDO: redeploy 146.
+━━ NEXT 120 DAYS ━━
+  • Intelligence tab: the two tiles and the timeline, with filters, CSV and a
+    new REPORT button. The long month-by-month list moved into the report.
+  • Report opens in its own window, always light: firm logo, client name, the
+    window dates, five summary figures, every item grouped by month with its
+    dollar figure, and the basis notes. Buttons: Print, Email (opens your mail
+    app with the summary), Close. Clicking a dot on the timeline opens the
+    report at that item.
+  • The weekly email opt-in ("Email me this list every Monday") now sits under
+    the timeline as well as in Admin → Next 120 days across every client.
+
+UNDO: redeploy 147. For the page redesign only: delete
+<script src="sp_polish.js"></script> in index.html.

@@ -475,6 +475,7 @@
     if (document.getElementById('trg120-css')) return;
     var st = document.createElement('style'); st.id = 'trg120-css';
     st.textContent =
+      '.t120-rbtn{background:linear-gradient(135deg,rgb(var(--acc-rgb,173,213,64)),rgba(var(--acc-rgb,173,213,64),.8));color:#06101F;border:0;border-radius:14px;padding:4px 14px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px -6px rgba(var(--acc-rgb,173,213,64),.8)}' +
       '.t120-track{position:relative;margin:14px 0 6px;padding:10px 14px 26px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.06)}' +
       '.t120-lane{display:flex;align-items:center;height:30px}' +
       '.t120-lane+.t120-lane{border-top:1px dashed rgba(255,255,255,.06)}' +
@@ -616,15 +617,67 @@
     }).join('');
     var shown = ev.filter(function (e) { return _filter === 'all' || e.kind === _filter; });
     css120();
-    var body = shown.length ? track(res, shown) + monthGroups(shown, t0)
+    // bundle 148: the card is the timeline; the full list lives in the Report window
+    var body = shown.length ? track(res, shown)
       : '<div class="loc-card-sub" style="padding:10px 0">Nothing in this category in the next 120 days.</div>';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
         '<div class="ic-lbl" style="margin:0">☰ Timeline · ' + fmtDate(t0, t0) + ' to ' + fmtDate(res.end, t0) + '</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">' + tabs +
-          '<button type="button" data-trg-csv style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:14px;padding:3px 10px;font-size:10.5px;cursor:pointer">CSV ↓</button></div>' +
+          '<button type="button" data-trg-csv style="background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:14px;padding:3px 10px;font-size:10.5px;cursor:pointer">CSV ↓</button>' +
+          '<button type="button" data-trg-report class="t120-rbtn">Report ↗</button></div>' +
       '</div><div style="margin-top:6px">' + body + '</div>' +
+      '<div data-trga-digest style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)"></div>' +
       '<div class="bm-basis">Default-rate moves cover the classes this client’s meters match, from the monthly price-to-compare refresh; “resets” means a fixed default price ends and the next one isn’t published yet. ' +
         'Contract rows show what each meter rolls onto if nothing is signed. BPS dates come from each ordinance’s published schedule. Brokers only.</div>';
+  }
+
+  // ── bundle 148: printable report (always light) ───────────────────────────
+  function plainTxt(h) { return String(h).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); }
+  function report(res, focus) {
+    var t0 = res.asOf, ev = res.events, s = res.stats || {};
+    var br = (window.BeaconBrand && window.BeaconBrand.current && window.BeaconBrand.current()) || null;
+    var firm = (br && (br.full || br.short)) || 'Sustainable Turnkey Solutions';
+    var logo = br && br.logo ? br.logo : ((document.querySelector('.logo-img') || {}).src || '');
+    var client = ((document.getElementById('d-name') || {}).textContent || '').trim() || 'Client';
+    var acc = (getComputedStyle(document.documentElement).getPropertyValue('--lime') || '#4C6FFF').trim();
+    var KC = { contract: '#B45309', rate: '#1D4ED8', bps: '#7C3AED' };
+    function kindLbl(e) { return e.kind === 'contract' ? 'Contract' : e.kind === 'bps' ? 'BPS deadline' : (e.sub === 'reset' ? 'Default resets' : (e.pct > 0 ? 'Default ↑' : 'Default ↓')); }
+    var rows = '', cur = null, idx = ev.indexOf(focus);
+    ev.forEach(function (e, i) {
+      var d = e.days < 0 ? t0 : e.date, k = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (k !== cur) { cur = k; rows += '<tr class="mo"><td colspan="5">' + esc(k) + '</td></tr>'; }
+      var v = evValue(e, t0);
+      var head = e.kind === 'contract' ? esc(where(e.a)) : e.kind === 'bps' ? esc(e.title) + ' · ' + esc(evWhere(e)) : esc(e.title);
+      rows += '<tr id="ev' + i + '"' + (i === idx ? ' class="focus"' : '') + '><td class="dt"><b>' + fmtDate(e.date, t0) + '</b><span>' + whenTxt(e, t0) + '</span></td>' +
+        '<td><span class="pill" style="color:' + KC[e.kind] + ';border-color:' + KC[e.kind] + '55;background:' + KC[e.kind] + '0f">' + kindLbl(e) + '</span></td>' +
+        '<td><div class="hd">' + head + '</div><div class="dl">' + esc(plainTxt(detail(e, t0))) + '</div></td>' +
+        '<td class="num">' + (v.n ? '<b>' + v.t + '</b><span>' + esc(v.s) + '</span>' : '<span>' + esc(v.s) + '</span>') + '</td></tr>';
+    });
+    var stat = function (n, l) { return '<div class="st"><b>' + n + '</b><span>' + l + '</span></div>'; };
+    var html = '<!doctype html><html><head><meta charset="utf-8"><title>Next 120 days · ' + esc(client) + '</title><style>' +
+      ':root{--a:' + acc + '}*{box-sizing:border-box}html,body{background:#fff;color:#0f172a;margin:0;font:13px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.bar{position:sticky;top:0;display:flex;gap:8px;justify-content:flex-end;padding:12px 28px;background:#f8fafc;border-bottom:1px solid #e2e8f0}.bar button{font:600 13px Inter,sans-serif;padding:8px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}.bar .pr{background:var(--a);border-color:var(--a);color:#fff}' +
+      '.pg{max-width:1000px;margin:0 auto;padding:36px 40px 48px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:3px solid var(--a);padding-bottom:18px}' +
+      '.top img{max-height:44px;max-width:200px}.eye{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#64748b;font-weight:700}h1{font-size:28px;margin:4px 0 2px;letter-spacing:-.5px}.sub{color:#475569}' +
+      '.sts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0}.st{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#f8fafc}.st b{display:block;font-size:22px;letter-spacing:-.5px}.st span{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.08em}' +
+      'table{width:100%;border-collapse:collapse}td{padding:10px 8px;border-bottom:1px solid #eef2f7;vertical-align:top}tr.mo td{padding:18px 0 6px;border-bottom:2px solid #0f172a;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800}' +
+      '.dt{width:92px}.dt b{display:block}.dt span,.num span{display:block;font-size:11px;color:#64748b}.hd{font-weight:600}.dl{font-size:12px;color:#475569}.num{text-align:right;white-space:nowrap;width:150px}.num b{font-size:14px}' +
+      '.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid;white-space:nowrap}tr.focus td{background:#fff7e6}' +
+      '.basis{margin-top:22px;font-size:11px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px}.ft{margin-top:10px;font-size:11px;color:#94a3b8}' +
+      '@media print{.bar{display:none}.pg{padding:0}tr{page-break-inside:avoid}@page{margin:14mm}}</style></head><body>' +
+      '<div class="bar"><button onclick="emailIt()">Email</button><button class="pr" onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>' +
+      '<div class="pg"><div class="top"><div><div class="eye">Next 120 days · contracts, default rates, BPS</div><h1>' + esc(client) + '</h1>' +
+        '<div class="sub">' + fmtDate(t0, t0) + ' to ' + fmtDate(res.end, t0) + ' · prepared by ' + esc(firm) + '</div></div>' + (logo ? '<img src="' + esc(logo) + '" alt="">' : '') + '</div>' +
+      '<div class="sts">' + stat(ev.length, 'Timed events') + stat(s.contract || 0, 'Contracts expiring') + stat(s.rate || 0, 'Default-rate moves') + stat(s.bps || 0, 'BPS deadlines') + stat(s.expired || 0, 'Already expired') + '</div>' +
+      (ev.length ? '<table>' + rows + '</table>' : '<p>No contract expirations, default-rate moves or BPS deadlines fall in this window.</p>') +
+      '<div class="basis">Default-rate moves come from the monthly utility price-to-compare catalog for the classes this portfolio’s meters match; “resets” means a fixed default price ends and the next one isn’t published yet. ' +
+        'Contract figures show what each meter pays on default service versus its contract if nothing is signed (estimated spend when no rate is on file). BPS dates and fines come from each ordinance’s published schedule. Estimates, not quotes.</div>' +
+      '<div class="ft">Beacon · ' + esc(firm) + ' · generated ' + new Date().toLocaleString('en-US') + '</div></div>' +
+      '<script>function emailIt(){var t=document.title,b=[...document.querySelectorAll("tr:not(.mo)")].slice(0,25).map(function(r){return r.innerText.replace(/\\s*\\n\\s*/g," · ")}).join("\\n");location.href="mailto:?subject="+encodeURIComponent(t)+"&body="+encodeURIComponent(t+"\\n\\n"+b+"\\n\\nSent from Beacon")}' +
+      (idx >= 0 ? 'setTimeout(function(){var e=document.getElementById("ev' + idx + '");if(e)e.scrollIntoView({block:"center"})},200);' : '') + '<\/script></body></html>';
+    var w = window.open('', '_blank', 'width=1100,height=900');
+    if (!w) { alert('Allow pop-ups for Beacon to open the report.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
   }
 
   function csv(res) {
@@ -657,13 +710,12 @@
     if (!C) return;
     C.innerHTML = listCard(res);
     bindLinks(C);
+    var shownNow = res.events.filter(function (e) { return _filter === 'all' || e.kind === _filter; });
     Array.prototype.forEach.call(C.querySelectorAll('[data-t120]'), function (d) {
-      d.addEventListener('click', function () {
-        var r = C.querySelector('[data-t120-row="' + d.getAttribute('data-t120') + '"]'); if (!r) return;
-        r.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        r.classList.add('flash'); setTimeout(function () { r.classList.remove('flash'); }, 1600);
-      });
+      d.addEventListener('click', function () { report(res, shownNow[+d.getAttribute('data-t120')]); });
     });
+    var rb = C.querySelector('[data-trg-report]'); if (rb) rb.addEventListener('click', function () { report(res); });
+    try { digestUi(C); } catch (e) {}
     Array.prototype.forEach.call(C.querySelectorAll('[data-trg-filter]'), function (b) {
       b.addEventListener('click', function () { _filter = b.getAttribute('data-trg-filter'); paintList(res); });
     });
