@@ -158,6 +158,15 @@
       'background:linear-gradient(135deg,' + A + ',' + Aa(.78) + ')!important;color:#06101F!important;box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 14px 30px -10px ' + Aa(.8) + ';transition:transform .16s,box-shadow .2s!important}' +
     '.spx-btn:hover,.spx-cta-btn:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 18px 38px -10px ' + Aa(.95) + '}' +
 
+    // fonts: these pages asked for Fraunces / IBM Plex Sans, which Beacon never
+    // loads, so they fell back to Times-style serif. Use Beacon's Inter instead.
+    '.subpage [style*="Fraunces"],.subpage [style*="IBM Plex Sans"],.subpage h1,.subpage h2,.subpage .pi-headline,.subpage .pi-gauge-headline,.subpage .sp-hero-v2-headline,.subpage .pi-tile-num,.subpage .pi-row-name{font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif!important}' +
+    '.subpage h1,.subpage .sp-hero-v2-headline{font-weight:800!important;letter-spacing:-.035em!important;line-height:1.06!important}' +
+    '.subpage h2,.subpage .spx-h2{font-weight:800!important;letter-spacing:-.03em!important}' +
+    '.subpage .pi-headline{font-weight:700!important;letter-spacing:-.02em!important;line-height:1.22!important}' +
+    '.subpage h1 em,.subpage h2 em{font-style:normal!important;background:linear-gradient(90deg,' + A + ',' + B + ');-webkit-background-clip:text;background-clip:text;color:transparent!important}' +
+    '#bm-modal-body [style*="Fraunces"],#bm-modal-body [style*="IBM Plex Sans"]{font-family:Inter,-apple-system,system-ui,sans-serif!important}' +
+
     // hero (program_intel two-column top row)
     '.subpage .sp-hero-v2-headline{letter-spacing:-1.2px}' +
     '.subpage .pi-top-row{position:relative}' +

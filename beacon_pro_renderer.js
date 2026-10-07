@@ -955,9 +955,14 @@
   // param and reload, rather than introducing a second source of truth for
   // state. Suppressed in client view — an end client should never be shown a
   // plan switcher for their own account.
+  // bundle 149: the "Preview tier" switcher is KEPT but hidden for demos (demos
+  // always show the top tier). Add ?tiers=1 to the address to bring it back, or
+  // ?tier=pro / ?tier=free to show a lower plan before a partner signs.
+  var SHOW_TIER_SWITCHER = false;
   function tierSwitcher(active) {
     var qp = new URLSearchParams(window.location.search);
     if (qp.get('view') === 'client') return '';
+    if (!SHOW_TIER_SWITCHER && qp.get('tiers') !== '1') return '';
 
     var btn = function (t) {
       var on = (t === active);
@@ -998,7 +1003,7 @@
     // Customer-level property type (customers.type / btype), crosswalked.
     // Null if absent or not representable by a DOE prototype.
     _fallbackPropertyType = normalizePropertyType(opts.propertyType);
-    var tier = String(opts.tier || 'pro').toLowerCase();
+    var tier = String(opts.tier || 'intelligence').toLowerCase();
     if (TIER_RANK[tier] == null) tier = 'pro';
 
     if (!accounts || accounts.length === 0) { container.innerHTML = ''; return; }

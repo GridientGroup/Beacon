@@ -1,39 +1,32 @@
-BEACON DEPLOY BUNDLE — beacon_index_148
-(Includes 147. If you haven't deployed 147, deploy this alone.)
+BEACON DEPLOY BUNDLE — beacon_index_150
+(Includes 148 and 149. Deploy alone.)
 ══════════════════════════════════════════════════════════════════════════════
-Changed vs 147: index.html, triggers.js
-New: sp_polish.js
+Changed vs 149: index.html, sp_polish.js
+New: outreach.js
 
-━━ SHARPER (the dull look) ━━
-  • Every program card that wasn't yet "assessed" was drawn at 65% opacity, so
-    on a fresh client (all of them, in a demo) every card, icon and number was
-    faded. Cards now draw at full strength; the status badge still says
-    "Not assessed". Fixes Power Kiosk and STS alike.
+━━ BROKER VIEW: CLIENT ACTIONS BECOME CLIENT OUTREACH ━━
+  In broker view every client-facing action now reaches out to THAT client:
+  • Intelligence "Recommended path" buttons: Request Audit / Run an RFP /
+    Get RECs … → "Email client: audit info", "Email client: RFP pitch",
+    "Email client: REC options" …
+  • Recommendations cards: "Schedule 15-min call" → "Invite client to a call",
+    the action button → "Email client: …".
+  • Account Manager card: "Invite client to a call" · "Send pricing note" ·
+    "Ask client for bills".
+  • Program pages: "Schedule Discovery Call" → "Send this program to the client".
+  Each opens a drafted email built from the client's own data: the finding,
+  how many locations qualify, the estimated $/yr (labelled as an estimate), the
+  three highest-use locations to start with, why it matters, and the firm's
+  booking link. Edit To / Subject / Message, then Open in email or Copy text.
+  "To" fills from the client's primary contact when one is on file.
+  Wording in broker view speaks about the client: "Client Portfolio",
+  "This client's EUI", "the client's states", "Client has" …
+  CLIENT VIEW IS UNCHANGED (checked: same labels, same actions).
 
-━━ PROGRAM STATUS TILES → PROGRAM PAGES ━━
-  • Overview tiles and the per-location tiles all open the program's page
-    (the same page as "See methodology"). No more mix of pop-up lists.
+━━ PROGRAM PAGE FONTS ━━
+  The pages asked for Fraunces and IBM Plex Sans, which Beacon never loads, so
+  headlines fell back to a Times-style serif. They now use Beacon's Inter,
+  heavier and tighter; the accent words in hero headlines take the firm's
+  two-colour gradient.
 
-━━ PROGRAM PAGES, REDESIGNED (sp_polish.js) ━━
-  • Key-figure band floats over the bottom of the hero as four lit tiles.
-  • "How it works" is a numbered timeline (01–04) with icon badges.
-  • "By the numbers" is three big stat columns with source tags.
-  • "Why it works" rows as cards; the savings estimate is a ticket with the
-    estimate in the second colour.
-  • Full-width call to action with a lit background and a bigger button.
-  • The "Annualized $" tile no longer wraps its range.
-  Words and numbers unchanged.
-
-━━ NEXT 120 DAYS ━━
-  • Intelligence tab: the two tiles and the timeline, with filters, CSV and a
-    new REPORT button. The long month-by-month list moved into the report.
-  • Report opens in its own window, always light: firm logo, client name, the
-    window dates, five summary figures, every item grouped by month with its
-    dollar figure, and the basis notes. Buttons: Print, Email (opens your mail
-    app with the summary), Close. Clicking a dot on the timeline opens the
-    report at that item.
-  • The weekly email opt-in ("Email me this list every Monday") now sits under
-    the timeline as well as in Admin → Next 120 days across every client.
-
-UNDO: redeploy 147. For the page redesign only: delete
-<script src="sp_polish.js"></script> in index.html.
+UNDO: redeploy 149. Outreach only: delete <script src="outreach.js"></script>.

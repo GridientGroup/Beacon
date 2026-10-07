@@ -9362,6 +9362,7 @@ body.client-view .nav-stack{flex-direction:row}  /* unused since row 2 is hidden
 <script src="control_dock.js"></script>
 <script src="polish.js"></script>
 <script src="sp_polish.js"></script>
+<script src="outreach.js"></script>
 <script>
 /* bundle 145: audience-aware headings. The text in the page is the client
    wording (formal); data-aud-broker holds the broker wording. */
@@ -10697,7 +10698,7 @@ function renderAll(){
         var _bpFirstKey = Object.keys(_bpPortfolios).find(function(k){ return Array.isArray(_bpPortfolios[k]); });
         _bpAccounts = _bpFirstKey ? _bpPortfolios[_bpFirstKey] : [];
       }
-      var _bpTier = window.__beaconTier || _bpQP.get('tier') || 'pro';
+      var _bpTier = window.__beaconTier || _bpQP.get('tier') || 'intelligence';   // bundle 149: demos show the top tier
       var _bpDiv = document.getElementById('beacon-pro-panels');
       if (_bpDiv) {
         // Call the renderer at EVERY tier, including free. The renderer itself
