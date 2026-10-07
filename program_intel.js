@@ -124,7 +124,9 @@
 .pi-top-row > .pi-wrap > .pi-card::before{display:none}
 .pi-top-row > .pi-wrap > .pi-card .pi-eyebrow{padding-top:6px}
 @media (max-width:980px){
-  .pi-top-row{grid-template-columns:1fr}
+  .pi-top-row{grid-template-columns:minmax(0,1fr)}
+  .pi-top-row > *, .pi-wrap, .pi-card{min-width:0}
+  .pi-ticker{overflow-x:auto;max-width:100%}
   .pi-top-row > .pi-hero-col{border-right:none;border-bottom:1px solid rgba(255,255,255,.08);padding:28px 24px !important}
   .pi-top-row > .pi-hero-col h1{font-size:30px !important}
 }
@@ -695,7 +697,9 @@
 
       const candidate = back.nextElementSibling;
       const cstyle = candidate ? (candidate.getAttribute('style') || '') : '';
-      const looksLikeHero = candidate && candidate.tagName === 'DIV' && (
+      // bundle 142: a hero seen once keeps a marker — the hero harmonizer strips
+      // its inline gradient, so the style test alone failed on a re-populate.
+      const looksLikeHero = candidate && candidate.tagName === 'DIV' && (candidate.dataset.piHero === '1' || !!candidate.querySelector(':scope > .sp-hero-v2')) || candidate && candidate.tagName === 'DIV' && (
         cstyle.indexOf('linear-gradient') >= 0 &&
         (cstyle.indexOf('navy') >= 0 || cstyle.indexOf('14234C') >= 0 || cstyle.indexOf('1c3166') >= 0)
       );
@@ -705,6 +709,7 @@
         topRow.className = 'pi-top-row';
         sp.insertBefore(topRow, candidate);
         candidate.classList.add('pi-hero-col');
+        candidate.dataset.piHero = '1';
         topRow.appendChild(candidate);
         topRow.appendChild(intelCard);
       } else {

@@ -57,8 +57,10 @@
         field('Full name', 'full', f.brand_full, 'e.g. Power Kiosk LLC') +
         field('Support email (also reply-to on emails)', 'email', f.brand_email, 'help@firm.com', 'email') +
         field('Phone', 'phone', f.brand_phone, '800.555.0100') +
-        field('Website', 'website', f.brand_website, 'firm.com') + '</div>' +
+        field('Website', 'website', f.brand_website, 'firm.com') +
+        field('“Schedule a call” link (bundle 139)', 'calendar', f.brand_calendar, 'https://calendly.com/firm/15min', 'url') + '</div>' +
       '<div><label style="' + LBL + '">Accent colour<input data-f="accent" type="color" value="' + esc(f.brand_accent || '#ADD540') + '" style="' + INP + ';height:34px;padding:2px"></label>' +
+        '<label style="' + LBL + '">Second colour (highlights; a dark one tints backgrounds)<input data-f="accent2" type="color" value="' + esc(f.brand_accent2 || '#FFB900') + '" style="' + INP + ';height:34px;padding:2px"></label>' +
         '<div style="font-size:11px;color:var(--mu);margin-bottom:4px">Logo (PNG, JPG, SVG or WebP, under 300 KB; wide logos look best)</div>' +
         '<div data-logo-prev style="background:#0a0e1a;border:1px dashed rgba(255,255,255,.2);border-radius:6px;min-height:54px;display:flex;align-items:center;justify-content:center;padding:6px;margin-bottom:6px">' +
           (logo ? '<img src="' + esc(logo) + '" style="max-height:44px;max-width:100%">' : (f.has_logo ? '<span style="font-size:11px;color:var(--mu)">logo on file (large, not previewed)</span>' : '<span style="font-size:11px;color:var(--mu)">no logo — the short name shows instead</span>')) + '</div>' +
@@ -97,7 +99,7 @@
         (f.brand_logo ? '<img src="' + esc(f.brand_logo) + '" style="max-height:34px;max-width:112px">' : '<span style="font-weight:800;font-size:13px;color:' + esc(readable(acc)) + '">' + esc(f.brand_short || f.short_name || f.name) + '</span>') + '</div>' +
       '<div style="flex:1;min-width:160px"><div style="font-weight:700;color:#fff;font-size:14px">' + esc(f.name) + '</div>' +
         '<div class="loc-card-srcline"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + esc(acc) + ';vertical-align:-1px;margin-right:4px"></span>' +
-        (f.brand_accent ? esc(f.brand_accent.toUpperCase()) : 'default look') + ' · ' + f.clients + ' client' + (f.clients === 1 ? '' : 's') + ' · ' + f.managers + ' manager' + (f.managers === 1 ? '' : 's') + ' · ' + f.reps + ' rep' + (f.reps === 1 ? '' : 's') +
+        (f.brand_accent ? esc(f.brand_accent.toUpperCase()) + (f.brand_accent2 ? ' + ' + esc(f.brand_accent2.toUpperCase()) : '') : 'default look') + ' · ' + f.clients + ' client' + (f.clients === 1 ? '' : 's') + ' · ' + f.managers + ' manager' + (f.managers === 1 ? '' : 's') + ' · ' + f.reps + ' rep' + (f.reps === 1 ? '' : 's') +
         (f.require_share_token ? ' · private links only' : '') + '</div></div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
         ['brand:Edit brand', 'demo:Add demo client', 'user:Add user'].map(function (x) { var p = x.split(':'); return '<button type="button" data-act="' + p[0] + '" data-org="' + esc(f.id) + '" style="' + (open && STATE.mode === p[0] ? BTN : BTN2) + '">' + p[1] + '</button>'; }).join('') +
@@ -113,7 +115,7 @@
     if (open && STATE.mode === 'demo') body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">' +
       '<label style="' + LBL + '">Copy from<select data-f="source" style="' + INP + '">' + STATE.demos.filter(function (d) { return d.org_id !== f.id; }).concat(STATE.demos.filter(function (d) { return d.org_id === f.id; }))
         .map(function (d) { return '<option value="' + esc(d.id) + '"' + (d.id === 'cust_sts_vandelay' ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select></label>' +
-      field('Name for the copy (optional)', 'name', '', 'e.g. Vandelay Industries') + '</div>' +
+      field('Name for the copy (optional)', 'name', '', 'e.g. Midwest Commercial Properties') + '</div>' +
       '<div style="display:flex;gap:10px;align-items:center;margin-top:4px"><button type="button" data-save-demo style="' + BTN + '">Copy demo client</button><span class="loc-card-srcline" data-msg>Copies the sites, accounts and meters (demo data only). Takes a few seconds for a large portfolio.</span></div>';
     if (open && STATE.mode === 'user') body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">' +
       field('Email', 'email', '', 'name@firm.com', 'email') + field('Full name', 'full_name', '', 'Jane Smith') +
@@ -155,11 +157,12 @@
       nb.querySelector('[data-create]').addEventListener('click', function (ev) {
         var v = vals(nb); if (!v.name) { say(nmsg, 'Firm name is required.', true); return; }
         var accent = v.accent && v.accent.toUpperCase() !== '#ADD540' ? v.accent : '';
+        var accent2 = v.accent2 && v.accent2.toUpperCase() !== '#FFB900' ? v.accent2 : '';
         ev.target.disabled = true; say(nmsg, 'Creating…');
-        call('create_firm', { name: v.name, short: v.short, full: v.full, accent: accent, logo: nlogo.logo || '', email: v.email, phone: v.phone, website: v.website })
+        call('create_firm', { name: v.name, short: v.short, full: v.full, accent: accent, logo: nlogo.logo || '', email: v.email, phone: v.phone, website: v.website, calendar: v.calendar || '', accent2: accent2 })
           .then(function (r) {
             var id = r.firm && r.firm.id;
-            return (v.require && id ? call('update_brand', { org_id: id, short: v.short || v.name, full: v.full || v.name, accent: accent, logo: nlogo.logo || '', email: v.email, phone: v.phone, website: v.website, require_share_token: true }) : Promise.resolve())
+            return (v.require && id ? call('update_brand', { org_id: id, short: v.short || v.name, full: v.full || v.name, accent: accent, logo: nlogo.logo || '', email: v.email, phone: v.phone, website: v.website, calendar: v.calendar || '', accent2: accent2, require_share_token: true }) : Promise.resolve())
               .then(function () { STATE.open = id; STATE.mode = 'demo'; return load('Created ' + v.name + '. Now copy a demo client into it.'); });
           })
           .catch(function (e) { ev.target.disabled = false; say(nmsg, 'Not created: ' + e.message, true); });
@@ -174,7 +177,8 @@
       var firm = STATE.firms.filter(function (x) { return x.id === org; })[0] || {}, lg = wireLogo(card, msg);
       sbtn.addEventListener('click', function () {
         var v = vals(card), accent = v.accent && !(v.accent.toUpperCase() === '#ADD540' && !firm.brand_accent) ? v.accent : '';
-        var body = { org_id: org, short: v.short, full: v.full, accent: accent, email: v.email, phone: v.phone, website: v.website, require_share_token: !!v.require };
+        var accent2 = v.accent2 && !(v.accent2.toUpperCase() === '#FFB900' && !firm.brand_accent2) ? v.accent2 : '';
+        var body = { org_id: org, short: v.short, full: v.full, accent: accent, email: v.email, phone: v.phone, website: v.website, calendar: v.calendar || '', accent2: accent2, require_share_token: !!v.require };
         if (lg.logo) body.logo = lg.logo; else if (lg.cleared) body.logo = ''; else body.keep_logo = true;
         sbtn.disabled = true; say(msg, 'Saving…');
         call('update_brand', body).then(function () {

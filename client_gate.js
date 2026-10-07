@@ -35,12 +35,25 @@
       return !!(m && m._viaSnapshot);
     } catch (e) { return false; }
   }
+  function loadedAsBroker() {
+    try {
+      var cid = window._beaconClientId || new URLSearchParams(location.search).get('clientId');
+      var m = window._beaconData && window._beaconData.meta && cid ? window._beaconData.meta[cid] : null;
+      return !!(m && m._supabase && !m._viaSnapshot);
+    } catch (e) { return false; }
+  }
   function boot() {
     if (local()) return;
     var tries = 0;
     (function poll() {
       if (done) return;
       if (viaSnapshot()) return gate('customer link');
+      // bundle 142: a ?share= link starts in client view (index.html pre-paint);
+      // lift it once the portfolio has loaded through a signed-in broker instead.
+      if (document.body.classList.contains('cv-pre') && loadedAsBroker()) {
+        document.body.classList.remove('client-view', 'cv-pre');
+        console.log('[client-gate] broker session on a customer link: broker view');
+      }
       var c = sb();
       if (c && c.auth && tries === 4) {
         c.auth.getSession().then(function (s) {

@@ -1,0 +1,72 @@
+BEACON DEPLOY BUNDLE — beacon_index_142
+(Builds on 141, which you deployed. Deploy alone. Test locally first if you have time.)
+══════════════════════════════════════════════════════════════════════════════
+Built 2026-10-07 (overnight, for the Power Kiosk demo at 2:00 PM EST).
+Changed vs 141: index.html, brand.js, client_gate.js, clients.js, firms.js,
+  program_intel.js, prereport.js, sqft.js
+New: control_dock.js, Beacon_Portfolio_Upload_Template.xlsx (a copy of
+  sts_portfolio_upload_template_v2.xlsx under a neutral name; old files kept)
+
+UNDO IF NEEDED: delete the line <script src="control_dock.js"></script> in
+index.html and the old button row + "View as" box come back.
+
+━━ CONTROL DOCK (Option C) ━━
+  • Header shows only the logo and the tabs. The second button row (Admin,
+    Live, date, Switch Customer, + Add Client, Edit Client, Generate Beacon
+    Brief) and the "View as" box are gone from view.
+  • Ask Gridient tray: on the line under its title — the client's initials
+    (hover = full name + sites), a green Live dot (hover = date), then small
+    icons with a hover label: Beacon Brief · Switch client · Add client ·
+    Edit client · Admin, and a two-icon Broker | Client switch.
+  • Hover the closed Ask Gridient button: the same small icons slide out
+    beside it (mouse only; phones use the tray).
+  • Each icon clicks the original control, so nothing about what they do
+    changed. Colours follow the firm's brand.
+  • Customer links: Ask Gridient only — no broker icons, no switch.
+  • Fixes the toolbar running off the right edge on laptops and the page
+    scrolling sideways; on phones the tabs scroll inside the header.
+
+━━ DEMO-PATH FIXES (from the review team) ━━
+  • Program pages keep their two-column hero after the client loads (it fell
+    back to flush-left); phones no longer overflow sideways.
+  • Headlines: "worksin" / "determinesyour" → proper spaces.
+  • Beacon Brief: in the firm's colour (Power Kiosk orange, darkened to read on
+    white) instead of STS green; Esc closes it; the page behind no longer
+    scrolls; Ask Gridient hides while it's open; fits a phone screen.
+  • Customer links: start in client view (no broker controls flashing while
+    loading or if loading fails); the STS tools menu can't open for clients.
+  • Learn More popup: Esc closes it; its three columns stack on narrow screens.
+  • Switch Customer scrolls the picker clear of the header; Add Client opens
+    centred and closes with Esc.
+  • Program participation popup no longer invents enrolment numbers (it showed
+    85/70/50 % of eligible sites as "participating" for any client). It now
+    says per-site enrolment isn't recorded yet.
+  • Template download uses Beacon_Portfolio_Upload_Template.xlsx (the old link
+    pointed at a capitalised file name that doesn't match the file).
+  • Admin brand panels no longer get their own wording rewritten by the brand
+    swap; saved pre-reports say "Pick a saved report first"; square-footage
+    lookup can't freeze on an odd reply.
+  • Uploaded addresses / city / building type are escaped where they were put
+    on screen raw (prevents code hidden in an upload from running).
+  • Admin → Firms placeholder: "e.g. Midwest Commercial Properties".
+
+━━ SECURITY — server side, already live ━━
+  • boldsign-send v2: only an active broker in the document's own firm (a rep
+    only for their own clients) can send; https document links only.
+  • boldsign-webhook v2: refuses every call without BoldSign's signature
+    (needs secret BOLDSIGN_WEBHOOK_SECRET when you turn BoldSign on — nothing
+    uses it today: 0 documents have a BoldSign id).
+  • ask-gridient v19: added a shared hourly cap on all anonymous use (120/h)
+    on top of the per-IP and per-user limits. Customer links keep the chat.
+  • Data: all four "Vandelay Industries" demo clients renamed "Midwest
+    Commercial Properties"; Power Kiosk support email = matt.helland@gridientgroup.com.
+
+NOT DONE (after the demo): firm-wide data visible to client logins/reps
+(alerts, activity, quotes, pre-reports), the storage policy that locks
+managers out of client files, private link codes for every firm (your call),
+login-cookie/CSP hardening, smaller items. Full list: BACKLOG.
+
+DEMO CHECKLIST (morning)
+  1. Deploy 142.  2. Admin → Firms → Power Kiosk → add user (manager) with
+  matt.helland+pk@gridientgroup.com.  3. Sign in with it in a private window.
+  4. Pick Midwest Commercial Properties and walk the path once.

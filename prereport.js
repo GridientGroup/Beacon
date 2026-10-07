@@ -547,7 +547,8 @@
   }
   function openSaved(root) {
     var c = sbc(), id = root.querySelector('[data-sv-list]').value;
-    if (!c || !id) return;
+    if (!id) { svMsg(root, 'Pick a saved report first.', true); return; }   // bundle 142
+    if (!c) return;
     svMsg(root, 'Opening…');
     c.from('prereports').select('id, input').eq('id', id).maybeSingle().then(function (r) {
       if (r.error || !r.data) { svMsg(root, 'Could not open: ' + ((r.error && r.error.message) || 'not found'), true); return; }
@@ -565,7 +566,8 @@
   }
   function deleteSaved(root) {
     var c = sbc(), sel = root.querySelector('[data-sv-list]'), id = sel.value;
-    if (!c || !id) return;
+    if (!id) { svMsg(root, 'Pick a saved report first.', true); return; }   // bundle 142
+    if (!c) return;
     var x = _saved.filter(function (s) { return s.id === id; })[0];
     if (!window.confirm('Delete the saved report for ' + (x ? (x.prospect || x.address) : 'this building') + '?')) return;
     c.from('prereports').delete().eq('id', id).select('id').then(function (r) {

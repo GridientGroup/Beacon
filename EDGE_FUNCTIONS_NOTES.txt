@@ -1,0 +1,1 @@
+boldsign-send v2, boldsign-webhook v2, ask-gridient v19 deployed 2026-10-07; sources viewable in the Supabase dashboard.
